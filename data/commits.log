@@ -38,3 +38,33 @@ Status: undefined
 Status: undefined
 [2025-07-21T12:38:55.827Z] ❌ Fallback message failed: 400: Bad Request: message is too long
 Status: undefined
+[2025-07-21T12:55:28.860Z] ✅ Bot started successfully
+[2025-07-21T12:55:39.766Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T12:55:40.092Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T12:55:40.708Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T12:55:41.332Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T12:55:41.945Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T12:55:42.555Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T12:55:42.855Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T13:15:34.027Z] ✅ Bot started successfully
+[2025-07-21T13:16:51.342Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T13:16:51.454Z] ✅ Repo added: combatextended-continued/combatextended
+[2025-07-21T13:17:08.731Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T13:17:08.840Z] ✅ Repo added: combatextended-continued/combatextended
+[2025-07-21T13:22:49.773Z] ✅ Bot started successfully
+[2025-07-21T13:23:49.752Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T13:29:43.886Z] ✅ Bot started successfully
+[2025-07-21T13:36:19.188Z] ✅ Bot started successfully
+[2025-07-21T14:03:32.951Z] ✅ Bot started successfully
+[2025-07-21T14:06:46.525Z] ❌ PR Error: combatextended-continued/combatextended: MAX_MESSAGE_LENGTH is not defined
+[2025-07-21T19:47:31.268Z] ✅ Bot started successfully

@@ -2,9 +2,10 @@ const axios = require('axios');
 const config = require('../config');
 const { log, logError } = require('../utils/logger');
 
-let apiRateLimit = {
+const apiRateLimit = {
+  limit: 60,
   remaining: 60,
-  reset: 0
+  reset: Math.floor(Date.now() / 1000) + 3600 // текущее время + 1 час
 };
 
 async function makeRequest(url) {
@@ -20,12 +21,11 @@ async function makeRequest(url) {
       }
     });
 
-    // Обновляем лимиты
-    if (response.headers['x-ratelimit-remaining']) {
-      apiRateLimit = {
-        remaining: parseInt(response.headers['x-ratelimit-remaining']),
-        reset: parseInt(response.headers['x-ratelimit-reset'])
-      };
+    // Обновляем лимиты из заголовков ответа
+    if (response.headers) {
+      apiRateLimit.limit = parseInt(response.headers['x-ratelimit-limit']) || 60;
+      apiRateLimit.remaining = parseInt(response.headers['x-ratelimit-remaining']) || 0;
+      apiRateLimit.reset = parseInt(response.headers['x-ratelimit-reset']) || Math.floor(Date.now() / 1000) + 3600;
     }
 
     return response.data;
@@ -93,6 +93,40 @@ async function getBranchLastCommit(owner, repo, branch) {
     }
 }
 
+async function getTotalCommitsCount(owner, repo, branch) {
+    const response = await axios.get(
+        `https://api.github.com/repos/${owner}/${repo}/commits?sha=${branch}&per_page=1`,
+        {
+            headers: {
+                'Authorization': `token ${config.GITHUB_TOKEN}`,
+                'User-Agent': 'GitHub-Tracker-Bot'
+            }
+        }
+    );
+    
+    // Извлекаем общее количество из заголовков Link
+    const linkHeader = response.headers.link;
+    if (linkHeader) {
+        const lastPageMatch = linkHeader.match(/page=(\d+)>; rel="last"/);
+        if (lastPageMatch) return parseInt(lastPageMatch[1]);
+    }
+    
+    return response.data.length;
+}
+
+async function fetchCommitsByBranch(owner, repo, branch, count = 5) {
+    const response = await axios.get(
+        `https://api.github.com/repos/${owner}/${repo}/commits?sha=${branch}&per_page=${count}`,
+        {
+            headers: {
+                'Authorization': `token ${config.GITHUB_TOKEN}`,
+                'User-Agent': 'GitHub-Tracker-Bot'
+            }
+        }
+    );
+    return response.data;
+}
+
 async function fetchRepoData(owner, repo) {
   try {
     const [repoInfo, commits] = await Promise.all([
@@ -116,5 +150,7 @@ module.exports = {
   apiRateLimit,
   getDefaultBranch,
   fetchRepoBranches,
+   getTotalCommitsCount,
+   fetchCommitsByBranch,
   getBranchLastCommit
 };

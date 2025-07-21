@@ -4,6 +4,18 @@ function escapeMarkdown(text) {
   return text.replace(/[_*[\]()~`>#+-={}.!]/g, '\\$&');
 }
 
+async function sendLongMessage(ctx, text, options = {}) {
+    const chunks = [];
+    while (text.length > 0) {
+        chunks.push(text.substring(0, MAX_MESSAGE_LENGTH));
+        text = text.substring(MAX_MESSAGE_LENGTH);
+    }
+    for (const chunk of chunks) {
+        await ctx.reply(chunk, options);
+        await new Promise(resolve => setTimeout(resolve, 300));
+    }
+}
+
 async function sendMessage(ctx, text, options = {}) {
   const {
     parse_mode = 'MarkdownV2',
@@ -52,5 +64,6 @@ async function sendMessage(ctx, text, options = {}) {
 
 module.exports = {
   sendMessage,
-  escapeMarkdown
+  escapeMarkdown,
+  sendLongMessage
 };

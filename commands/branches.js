@@ -2,9 +2,15 @@ const { fetchRepoBranches, getBranchLastCommit, getDefaultBranch } = require('..
 const { sendMessage, escapeMarkdown } = require('../utils/message');
 const { log, logError } = require('../utils/logger');
 
+// Константы
+const MAX_MESSAGE_LENGTH = 4000; // Лимит Telegram с запасом
+const BRANCHES_PER_MESSAGE = 10; // Оптимальное количество веток в одном сообщении
+const MESSAGE_DELAY_MS = 300;    // Задержка между сообщениями
+
 module.exports = async (ctx) => {
     const args = ctx.message.text.split(' ').slice(1);
     
+    // Валидация формата команды
     if (!args[0]?.includes('/')) {
         return sendMessage(
             ctx,
@@ -19,12 +25,13 @@ module.exports = async (ctx) => {
     const repoName = `${owner}/${repo}`;
 
     try {
-        // Параллельно получаем ветки и ветку по умолчанию
+        // Параллельное получение данных
         const [branches, defaultBranch] = await Promise.all([
             fetchRepoBranches(owner, repo),
             getDefaultBranch(owner, repo)
         ]);
 
+        // Проверка наличия веток
         if (!branches?.length) {
             return sendMessage(
                 ctx,
@@ -34,21 +41,57 @@ module.exports = async (ctx) => {
             );
         }
 
-        // Получаем последние коммиты для каждой ветки
+        // Получение доп. информации о ветках
         const branchesWithStatus = await getBranchesStatus(owner, repo, branches);
-
-        // Формируем сообщение
-        let message = `🌳 *Ветки репозитория ${escapeMarkdown(repoName)}* 🌳\n\n`;
         
-        // Сортируем: сначала ветка по умолчанию, затем по активности
+        // Сортировка: сначала ветка по умолчанию, затем по дате коммита
         branchesWithStatus.sort((a, b) => {
             if (a.name === defaultBranch) return -1;
             if (b.name === defaultBranch) return 1;
             return new Date(b.lastCommit) - new Date(a.lastCommit);
         });
 
-        // Добавляем ветки в сообщение
-        branchesWithStatus.forEach(branch => {
+        // Формирование и отправка сообщений
+        await sendBranchesMessages(ctx, {
+            repoName,
+            branches: branchesWithStatus,
+            defaultBranch,
+            totalCount: branches.length
+        });
+
+    } catch (error) {
+        logError(error, `Branches command failed: ${repoName}`);
+        await handleBranchError(ctx, error, repoName);
+    }
+};
+
+/**
+ * Формирует и отправляет сообщения с ветками
+ */
+async function sendBranchesMessages(ctx, { repoName, branches, defaultBranch, totalCount }) {
+    // Отправка заголовка
+    await sendMessage(
+        ctx,
+        `🌳 *Ветки репозитория ${escapeMarkdown(repoName)}* 🌳\n` +
+        `📊 Всего веток: *${totalCount}*\n` +
+        `┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄`,
+        { parse_mode: 'MarkdownV2' }
+    );
+
+    // Разбиваем ветки на группы
+    const branchGroups = [];
+    for (let i = 0; i < branches.length; i += BRANCHES_PER_MESSAGE) {
+        branchGroups.push(branches.slice(i, i + BRANCHES_PER_MESSAGE));
+    }
+
+    // Отправка групп веток
+    for (const [index, group] of branchGroups.entries()) {
+        let message = branchGroups.length > 1 
+            ? `*Часть ${index + 1}/${branchGroups.length}*\n\n` 
+            : '';
+
+        // Формируем блоки с информацией о ветках
+        group.forEach(branch => {
             const isDefault = branch.name === defaultBranch;
             const statusEmoji = getBranchEmoji(branch.lastCommit);
             
@@ -58,21 +101,29 @@ module.exports = async (ctx) => {
                       `   🆔 ${branch.lastCommitSha?.slice(0, 7) || 'unknown'}\n\n`;
         });
 
-        message += `📊 Всего веток: *${branches.length}*\n\n` +
-                  `Для просмотра коммитов: \`/last ${escapeMarkdown(repoName)} [ветка]\``;
-
-        await sendMessage(ctx, message, { 
+        await sendMessage(ctx, message, {
             parse_mode: 'MarkdownV2',
             disable_web_page_preview: true
         });
 
-    } catch (error) {
-        logError(error, `Branches command failed: ${repoName}`);
-        await handleBranchError(ctx, error, repoName);
+        // Задержка между сообщениями
+        if (branchGroups.length > 1 && index < branchGroups.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, MESSAGE_DELAY_MS));
+        }
     }
-};
 
-// Получаем статус для всех веток
+    // Отправка подвала
+    await sendMessage(
+        ctx,
+        `┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n` +
+        `Для просмотра коммитов: \`/last ${escapeMarkdown(repoName)} [ветка]\``,
+        { parse_mode: 'MarkdownV2' }
+    );
+}
+
+/**
+ * Получает статус для всех веток
+ */
 async function getBranchesStatus(owner, repo, branches) {
     const requests = branches.map(async branch => {
         const commit = await getBranchLastCommit(owner, repo, branch);
@@ -86,7 +137,9 @@ async function getBranchesStatus(owner, repo, branches) {
     return Promise.all(requests);
 }
 
-// Определяем emoji-статус по дате последнего коммита
+/**
+ * Определяет emoji-статус по дате последнего коммита
+ */
 function getBranchEmoji(lastCommitDate) {
     if (!lastCommitDate) return '🔴';
     
@@ -97,7 +150,9 @@ function getBranchEmoji(lastCommitDate) {
     return '🔴';                   // Неактивная
 }
 
-// Форматирование даты
+/**
+ * Форматирует дату
+ */
 function formatDate(dateString) {
     if (!dateString) return 'неизвестно';
     const date = new Date(dateString);
@@ -108,7 +163,9 @@ function formatDate(dateString) {
     });
 }
 
-// Обработка ошибок
+/**
+ * Обрабатывает ошибки
+ */
 async function handleBranchError(ctx, error, repoName) {
     let errorMessage;
     

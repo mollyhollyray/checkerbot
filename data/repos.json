@@ -1,1 +1,20 @@
-[["mollyhollyray/commits_checker_tgbot",{"lastCommitSha":"d91993c4d11fb3d6967d76808dd891928f04397c","lastCommitTime":1752938513000}]]
+[
+  [
+    "mollyhollyray/commits_checker_tgbot",
+    {
+      "lastCommitSha": "d91993c4d11fb3d6967d76808dd891928f04397c",
+      "lastCommitTime": 1752938513000,
+      "defaultBranch": "main",
+      "addedAt": "2025-07-21T13:16:31.937Z"
+    }
+  ],
+  [
+    "combatextended-continued/combatextended",
+    {
+      "lastCommitSha": "a0909face4a02e998c1c652cb39fd652af9a0356",
+      "lastCommitTime": 1753060163000,
+      "defaultBranch": "Development",
+      "addedAt": "2025-07-21T13:17:08.839Z"
+    }
+  ]
+]
