@@ -1,0 +1,16 @@
+2025-07-19T15:18:00.675Z mollyhollyray/commits_checker_tgbot | 26e742b5d104f0c50b9cb2510471697da742563a | main2025-07-19T15:22:00.690Z mollyhollyray/commits_checker_tgbot | d91993c4d11fb3d6967d76808dd891928f04397c | main[2025-07-21T10:39:55.313Z] 💥 Failed to send message: 400: Bad Request: can't parse entities: Character '>' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T10:40:04.799Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '>' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T10:40:25.067Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '>' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T10:43:17.429Z] 💥 Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T10:45:05.908Z] ❌ Error in message: sendSafe is not a function
+[2025-07-21T10:48:17.141Z] 💥 Message sending failed: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T10:52:22.469Z] 💥 Message sending failed: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T11:08:54.828Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T11:11:33.659Z] ✅ Bot started successfully
