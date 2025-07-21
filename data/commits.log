@@ -14,3 +14,27 @@ Status: undefined
 [2025-07-21T11:08:54.828Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
 Status: undefined
 [2025-07-21T11:11:33.659Z] ✅ Bot started successfully
+[2025-07-21T11:58:23.070Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T11:58:52.504Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T11:59:10.156Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T12:16:32.640Z] ✅ Bot started successfully
+[2025-07-21T12:19:45.099Z] ✅ Bot started successfully
+[2025-07-21T12:20:49.141Z] ❌ Branches command failed: CombatExtended-Continued/CombatExtended: fetchRepoBranches is not a function
+[2025-07-21T12:27:09.632Z] ✅ Bot started successfully
+[2025-07-21T12:27:15.634Z] ❌ Branches command failed: CombatExtended-Continued/CombatExtended: fetchRepoBranches is not a function
+[2025-07-21T12:27:57.911Z] ✅ Bot started successfully
+[2025-07-21T12:28:03.129Z] ❌ Branches command failed: CombatExtended-Continued/CombatExtended: getDefaultBranch is not defined
+[2025-07-21T12:29:04.872Z] ✅ Bot started successfully
+[2025-07-21T12:29:09.742Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T12:38:17.154Z] ✅ Bot started successfully
+[2025-07-21T12:38:31.447Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T12:38:47.793Z] ✅ Bot started successfully
+[2025-07-21T12:38:55.745Z] ❌ Failed to send message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+Status: undefined
+[2025-07-21T12:38:55.827Z] ❌ Fallback message failed: 400: Bad Request: message is too long
+Status: undefined

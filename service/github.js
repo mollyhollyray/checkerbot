@@ -35,6 +35,64 @@ async function makeRequest(url) {
   }
 }
 
+async function fetchRepoBranches(owner, repo) {
+    try {
+        const response = await axios.get(
+            `https://api.github.com/repos/${owner}/${repo}/branches`,
+            {
+                headers: {
+                    'Authorization': `token ${config.GITHUB_TOKEN}`,
+                    'User-Agent': 'GitHub-Tracker-Bot'
+                },
+                params: {
+                    per_page: 50 // Лимит GitHub API
+                }
+            }
+        );
+        
+        return response.data.map(b => b.name).sort();
+    } catch (error) {
+        logError(error, `Failed to fetch branches: ${owner}/${repo}`);
+        throw error;
+    }
+}
+
+async function getDefaultBranch(owner, repo) {
+    try {
+        const response = await axios.get(
+            `https://api.github.com/repos/${owner}/${repo}`,
+            {
+                headers: {
+                    'Authorization': `token ${config.GITHUB_TOKEN}`,
+                    'User-Agent': 'GitHub-Tracker-Bot'
+                }
+            }
+        );
+        return response.data.default_branch;
+    } catch (error) {
+        logError(error, `Failed to get default branch: ${owner}/${repo}`);
+        return null;
+    }
+}
+
+async function getBranchLastCommit(owner, repo, branch) {
+    try {
+        const response = await axios.get(
+            `https://api.github.com/repos/${owner}/${repo}/commits?sha=${branch}&per_page=1`,
+            {
+                headers: {
+                    'Authorization': `token ${config.GITHUB_TOKEN}`,
+                    'User-Agent': 'GitHub-Tracker-Bot'
+                }
+            }
+        );
+        return response.data[0];
+    } catch (error) {
+        logError(error, `Failed to get branch last commit: ${owner}/${repo}/${branch}`);
+        return null;
+    }
+}
+
 async function fetchRepoData(owner, repo) {
   try {
     const [repoInfo, commits] = await Promise.all([
@@ -55,5 +113,8 @@ async function fetchRepoData(owner, repo) {
 
 module.exports = {
   fetchRepoData,
-  apiRateLimit
+  apiRateLimit,
+  getDefaultBranch,
+  fetchRepoBranches,
+  getBranchLastCommit
 };

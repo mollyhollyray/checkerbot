@@ -6,29 +6,57 @@ const { log, logError } = require('../utils/logger');
 class Storage {
   constructor() {
     this.repos = new Map();
-    this.load();
-    this.ensureDataDir();
+    this.initStorage();
   }
 
-  ensureDataDir() {
-    const dir = path.dirname(config.DB_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  }
-
-  load() {
+  /**
+   * Инициализация хранилища
+   */
+  initStorage() {
     try {
+      // Создаем папку data если не существует
+      if (!fs.existsSync(path.dirname(config.DB_FILE))) {
+        fs.mkdirSync(path.dirname(config.DB_FILE), { recursive: true });
+      }
+
+      // Загружаем данные если файл существует
       if (fs.existsSync(config.DB_FILE)) {
-        const data = JSON.parse(fs.readFileSync(config.DB_FILE, 'utf-8'));
-        this.repos = new Map(data);
-        log(`Loaded ${this.repos.size} repositories from storage`);
+        const rawData = fs.readFileSync(config.DB_FILE, 'utf-8');
+        const data = JSON.parse(rawData);
+        
+        // Валидация и нормализация загруженных данных
+        this.repos = new Map(
+          Array.isArray(data) 
+            ? data.map(([key, repoData]) => [
+                key,
+                this.normalizeRepoData(repoData)
+              ])
+            : []
+        );
+        
+        log(`Storage loaded: ${this.repos.size} repos`);
       }
     } catch (error) {
-      logError(error, 'Failed to load storage');
+      logError(error, 'Storage initialization failed');
     }
   }
 
+  /**
+   * Нормализация данных репозитория
+   */
+  normalizeRepoData(repoData) {
+    return {
+      lastCommitSha: repoData.lastCommitSha || '',
+      lastCommitTime: repoData.lastCommitTime || Date.now(),
+      defaultBranch: repoData.defaultBranch || 'main',
+      addedAt: repoData.addedAt || new Date().toISOString(),
+      ...repoData
+    };
+  }
+
+  /**
+   * Сохранение данных
+   */
   save() {
     try {
       fs.writeFileSync(
@@ -37,25 +65,56 @@ class Storage {
         'utf-8'
       );
     } catch (error) {
-      logError(error, 'Failed to save storage');
+      logError(error, 'Storage save failed');
     }
   }
 
+  /**
+   * Добавление репозитория
+   */
   addRepo(owner, repo, data) {
     const key = `${owner}/${repo}`.toLowerCase();
-    this.repos.set(key, data);
+    const normalizedData = this.normalizeRepoData(data);
+    
+    this.repos.set(key, normalizedData);
     this.save();
-    log(`Added repository: ${key}`, 'success');
+    
+    log(`Repo added: ${key}`, 'success');
     return true;
   }
 
+  /**
+   * Получение всех репозиториев
+   */
+  getRepos() {
+    return Array.from(this.repos.entries()).map(([key, data]) => [
+      key,
+      this.normalizeRepoData(data)
+    ]);
+  }
+
+  /**
+   * Проверка существования репозитория
+   */
   hasRepo(owner, repo) {
     return this.repos.has(`${owner}/${repo}`.toLowerCase());
   }
 
-  getRepos() {
-    return Array.from(this.repos.entries());
+  /**
+   * Удаление репозитория
+   */
+  removeRepo(owner, repo) {
+    const key = `${owner}/${repo}`.toLowerCase();
+    const result = this.repos.delete(key);
+    
+    if (result) {
+      this.save();
+      log(`Repo removed: ${key}`);
+    }
+    
+    return result;
   }
 }
 
+// Экспорт синглтона
 module.exports = new Storage();
