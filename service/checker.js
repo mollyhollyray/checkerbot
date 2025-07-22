@@ -1,8 +1,9 @@
 const github = require('./github');
 const storage = require('./storage');
-const { sendMessage } = require('../utils/message');
 const { log, logError } = require('../utils/logger');
 const config = require('../config');
+const { formatDistanceToNow } = require('date-fns');
+const { ru } = require('date-fns/locale');
 
 module.exports = {
   async checkAllRepos(bot) {
@@ -12,7 +13,7 @@ module.exports = {
       return [];
     }
 
-    log(`🔍 Запуск проверки ${repos.length} репозиториев...`);
+    log(`🔍 Проверка ${repos.length} репозиториев...`);
     const updates = [];
     let checkedCount = 0;
 
@@ -28,11 +29,7 @@ module.exports = {
         const duration = Date.now() - startTime;
 
         if (!latestCommit) {
-          logError(`Ветка ${branch} не найдена в репозитории ${fullName}`);
-          await bot.telegram.sendMessage(
-            config.ADMIN_USER_ID,
-            `❌ Ветка ${branch} не найдена в репозитории ${fullName}`
-          );
+          logError(`Ветка ${branch} не найдена в ${fullName}`);
           continue;
         }
 
@@ -55,10 +52,6 @@ module.exports = {
         checkedCount++;
       } catch (error) {
         logError(`❌ Ошибка проверки ${fullName}: ${error.message}`);
-        await bot.telegram.sendMessage(
-          config.ADMIN_USER_ID,
-          `❌ Ошибка проверки ${fullName}: ${error.message}`
-        );
       }
     }
 
@@ -70,11 +63,11 @@ module.exports = {
   async notifyUpdates(bot, updates) {
     for (const update of updates) {
       try {
-        const message = this.formatUpdateMessage(update);
+        const message = this.formatCommitMessage(update);
         await bot.telegram.sendMessage(
-          config.ADMIN_USER_ID, 
+          config.ADMIN_USER_ID,
           message,
-          { parse_mode: 'HTML' }
+          { parse_mode: 'HTML', disable_web_page_preview: true }
         );
         log(`Уведомление отправлено: ${update.repo}`);
       } catch (error) {
@@ -83,31 +76,28 @@ module.exports = {
     }
   },
 
-  formatUpdateMessage(update) {
-    const commitMessage = update.commit.commit.message.split('\n')[0];
-    return `
-📌 <b>Новый коммит в ${update.repo}</b> (${update.branch})
-━━━━━━━━━━━━━━━━━━
-<code>${update.commit.sha.slice(0, 7)}</code> ${escapeHtml(commitMessage)}
+  formatCommitMessage(update) {
+    const commit = update.commit;
+    const commitDate = new Date(commit.commit.committer.date);
+    const firstLine = commit.commit.message.split('\n')[0];
+    const otherLines = commit.commit.message.split('\n').slice(1).join('\n').trim();
+    const timeAgo = formatDistanceToNow(commitDate, { addSuffix: true, locale: ru });
 
-👤 ${update.commit.commit.author.name}
-📅 ${formatDate(update.commit.commit.author.date)}
+    return `
+<b>🆕 Новый коммит в ${update.repo}</b> (<code>${update.branch}</code>)
 ━━━━━━━━━━━━━━━━━━
-<a href="${update.commit.html_url}">🔗 Просмотреть изменения</a>
+<code>${commit.sha.slice(0, 7)}</code> <b>${escapeHtml(firstLine)}</b>
+
+${otherLines ? `<pre>${escapeHtml(otherLines)}</pre>` : ''}
+
+👤 <b>Автор:</b> ${commit.commit.author.name}
+⏱ <b>Время:</b> ${timeAgo} (${commitDate.toLocaleString('ru-RU')})
+🔗 <a href="${commit.html_url}">Просмотреть коммит</a>
+━━━━━━━━━━━━━━━━━━
+<code>/last ${update.repo} ${update.branch} 3</code> - показать последние 3 коммита
     `;
   }
 };
-
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  return date.toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
 
 function escapeHtml(text) {
   if (!text) return '';
