@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const config = require('../config');
-const { log, logError } = require('../utils/logger');
+const { log } = require('../utils/logger');
 
 class Storage {
   constructor() {
@@ -9,54 +9,22 @@ class Storage {
     this.initStorage();
   }
 
-  /**
-   * Инициализация хранилища
-   */
   initStorage() {
     try {
-      // Создаем папку data если не существует
       if (!fs.existsSync(path.dirname(config.DB_FILE))) {
         fs.mkdirSync(path.dirname(config.DB_FILE), { recursive: true });
       }
 
-      // Загружаем данные если файл существует
       if (fs.existsSync(config.DB_FILE)) {
-        const rawData = fs.readFileSync(config.DB_FILE, 'utf-8');
-        const data = JSON.parse(rawData);
-        
-        // Валидация и нормализация загруженных данных
-        this.repos = new Map(
-          Array.isArray(data) 
-            ? data.map(([key, repoData]) => [
-                key,
-                this.normalizeRepoData(repoData)
-              ])
-            : []
-        );
-        
-        log(`Storage loaded: ${this.repos.size} repos`);
+        const data = JSON.parse(fs.readFileSync(config.DB_FILE, 'utf-8'));
+        this.repos = new Map(data);
+        log(`Загружено ${this.repos.size} репозиториев из хранилища`);
       }
     } catch (error) {
-      logError(error, 'Storage initialization failed');
+      log(`Ошибка инициализации хранилища: ${error.message}`);
     }
   }
 
-  /**
-   * Нормализация данных репозитория
-   */
-  normalizeRepoData(repoData) {
-    return {
-      lastCommitSha: repoData.lastCommitSha || '',
-      lastCommitTime: repoData.lastCommitTime || Date.now(),
-      defaultBranch: repoData.defaultBranch || 'main',
-      addedAt: repoData.addedAt || new Date().toISOString(),
-      ...repoData
-    };
-  }
-
-  /**
-   * Сохранение данных
-   */
   save() {
     try {
       fs.writeFileSync(
@@ -65,56 +33,48 @@ class Storage {
         'utf-8'
       );
     } catch (error) {
-      logError(error, 'Storage save failed');
+      log(`Ошибка сохранения хранилища: ${error.message}`);
     }
   }
 
-  /**
-   * Добавление репозитория
-   */
+  getRepos() {
+    return [...this.repos];
+  }
+
   addRepo(owner, repo, data) {
     const key = `${owner}/${repo}`.toLowerCase();
-    const normalizedData = this.normalizeRepoData(data);
-    
-    this.repos.set(key, normalizedData);
+    this.repos.set(key, {
+      defaultBranch: data.defaultBranch || 'main',
+      branch: data.defaultBranch || 'main', // Дублируем для совместимости
+      addedAt: new Date().toISOString(),
+      ...data
+    });
     this.save();
-    
-    log(`Repo added: ${key}`, 'success');
     return true;
   }
 
-  /**
-   * Получение всех репозиториев
-   */
-  getRepos() {
-    return Array.from(this.repos.entries()).map(([key, data]) => [
-      key,
-      this.normalizeRepoData(data)
-    ]);
-  }
-
-  /**
-   * Проверка существования репозитория
-   */
-  hasRepo(owner, repo) {
-    return this.repos.has(`${owner}/${repo}`.toLowerCase());
-  }
-
-  /**
-   * Удаление репозитория
-   */
   removeRepo(owner, repo) {
     const key = `${owner}/${repo}`.toLowerCase();
     const result = this.repos.delete(key);
-    
-    if (result) {
-      this.save();
-      log(`Repo removed: ${key}`);
-    }
-    
+    if (result) this.save();
     return result;
+  }
+
+  updateRepoCommit(owner, repo, commitData) {
+    const key = `${owner}/${repo}`.toLowerCase();
+    if (this.repos.has(key)) {
+      const repoData = this.repos.get(key);
+      this.repos.set(key, {
+        ...repoData,
+        lastCommitSha: commitData.sha,
+        lastCommitTime: new Date(commitData.commit.committer.date).getTime(),
+        lastCommitMessage: commitData.commit.message
+      });
+      this.save();
+      return true;
+    }
+    return false;
   }
 }
 
-// Экспорт синглтона
 module.exports = new Storage();

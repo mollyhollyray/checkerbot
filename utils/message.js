@@ -5,14 +5,19 @@ function escapeMarkdown(text) {
 }
 
 async function sendLongMessage(ctx, text, options = {}) {
+    const MAX_LENGTH = 4000;
     const chunks = [];
+    
     while (text.length > 0) {
-        chunks.push(text.substring(0, MAX_MESSAGE_LENGTH));
-        text = text.substring(MAX_MESSAGE_LENGTH);
+        chunks.push(text.substring(0, MAX_LENGTH));
+        text = text.substring(MAX_LENGTH);
     }
+    
     for (const chunk of chunks) {
         await ctx.reply(chunk, options);
-        await new Promise(resolve => setTimeout(resolve, 300));
+        if (chunks.length > 1) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
     }
 }
 

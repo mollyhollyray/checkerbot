@@ -5,13 +5,14 @@ const { log, logError } = require('../utils/logger');
 const apiRateLimit = {
   limit: 60,
   remaining: 60,
-  reset: Math.floor(Date.now() / 1000) + 3600 // текущее время + 1 час
+  reset: Math.floor(Date.now() / 1000) + 3600
 };
 
 async function makeRequest(url) {
   try {
     if (apiRateLimit.remaining < 5) {
-      throw new Error(`GitHub API limit reached. Resets at: ${new Date(apiRateLimit.reset * 1000)}`);
+      const delay = Math.max(0, apiRateLimit.reset * 1000 - Date.now() + 1000);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
 
     const response = await axios.get(url, {
@@ -21,7 +22,6 @@ async function makeRequest(url) {
       }
     });
 
-    // Обновляем лимиты из заголовков ответа
     if (response.headers) {
       apiRateLimit.limit = parseInt(response.headers['x-ratelimit-limit']) || 60;
       apiRateLimit.remaining = parseInt(response.headers['x-ratelimit-remaining']) || 0;
@@ -30,101 +30,36 @@ async function makeRequest(url) {
 
     return response.data;
   } catch (error) {
-    logError(error, 'GitHub API request failed');
+    logError(`GitHub API request failed: ${url} - ${error.message}`);
     throw error;
   }
 }
 
-async function fetchRepoBranches(owner, repo) {
-    try {
-        const response = await axios.get(
-            `https://api.github.com/repos/${owner}/${repo}/branches`,
-            {
-                headers: {
-                    'Authorization': `token ${config.GITHUB_TOKEN}`,
-                    'User-Agent': 'GitHub-Tracker-Bot'
-                },
-                params: {
-                    per_page: 50 // Лимит GitHub API
-                }
-            }
-        );
-        
-        return response.data.map(b => b.name).sort();
-    } catch (error) {
-        logError(error, `Failed to fetch branches: ${owner}/${repo}`);
-        throw error;
-    }
-}
-
-async function getDefaultBranch(owner, repo) {
-    try {
-        const response = await axios.get(
-            `https://api.github.com/repos/${owner}/${repo}`,
-            {
-                headers: {
-                    'Authorization': `token ${config.GITHUB_TOKEN}`,
-                    'User-Agent': 'GitHub-Tracker-Bot'
-                }
-            }
-        );
-        return response.data.default_branch;
-    } catch (error) {
-        logError(error, `Failed to get default branch: ${owner}/${repo}`);
-        return null;
-    }
-}
-
 async function getBranchLastCommit(owner, repo, branch) {
-    try {
-        const response = await axios.get(
-            `https://api.github.com/repos/${owner}/${repo}/commits?sha=${branch}&per_page=1`,
-            {
-                headers: {
-                    'Authorization': `token ${config.GITHUB_TOKEN}`,
-                    'User-Agent': 'GitHub-Tracker-Bot'
-                }
-            }
-        );
-        return response.data[0];
-    } catch (error) {
-        logError(error, `Failed to get branch last commit: ${owner}/${repo}/${branch}`);
-        return null;
-    }
-}
-
-async function getTotalCommitsCount(owner, repo, branch) {
+  try {
     const response = await axios.get(
-        `https://api.github.com/repos/${owner}/${repo}/commits?sha=${branch}&per_page=1`,
-        {
-            headers: {
-                'Authorization': `token ${config.GITHUB_TOKEN}`,
-                'User-Agent': 'GitHub-Tracker-Bot'
-            }
+      `https://api.github.com/repos/${owner}/${repo}/commits`,
+      {
+        params: {
+          sha: branch,
+          per_page: 1
+        },
+        headers: {
+          'Authorization': `token ${config.GITHUB_TOKEN}`,
+          'User-Agent': 'GitHub-Tracker-Bot'
         }
+      }
     );
-    
-    // Извлекаем общее количество из заголовков Link
-    const linkHeader = response.headers.link;
-    if (linkHeader) {
-        const lastPageMatch = linkHeader.match(/page=(\d+)>; rel="last"/);
-        if (lastPageMatch) return parseInt(lastPageMatch[1]);
-    }
-    
-    return response.data.length;
-}
 
-async function fetchCommitsByBranch(owner, repo, branch, count = 5) {
-    const response = await axios.get(
-        `https://api.github.com/repos/${owner}/${repo}/commits?sha=${branch}&per_page=${count}`,
-        {
-            headers: {
-                'Authorization': `token ${config.GITHUB_TOKEN}`,
-                'User-Agent': 'GitHub-Tracker-Bot'
-            }
-        }
-    );
-    return response.data;
+    if (response.status === 404 || !response.data[0]) {
+      throw new Error(`Репозиторий или ветка не найдены: ${owner}/${repo}/${branch}`);
+    }
+
+    return response.data[0];
+  } catch (error) {
+    logError(`Failed to get branch last commit: ${owner}/${repo}/${branch} - ${error.message}`);
+    return null;
+  }
 }
 
 async function fetchRepoData(owner, repo) {
@@ -140,17 +75,14 @@ async function fetchRepoData(owner, repo) {
       defaultBranch: repoInfo.default_branch || 'main'
     };
   } catch (error) {
-    logError(error, `Failed to fetch repo data: ${owner}/${repo}`);
+    logError(`Failed to fetch repo data: ${owner}/${repo} - ${error.message}`);
     throw error;
   }
 }
 
 module.exports = {
   fetchRepoData,
+  getBranchLastCommit,
   apiRateLimit,
-  getDefaultBranch,
-  fetchRepoBranches,
-   getTotalCommitsCount,
-   fetchCommitsByBranch,
-  getBranchLastCommit
+  makeRequest
 };

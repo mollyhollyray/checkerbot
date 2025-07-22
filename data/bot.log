@@ -1,0 +1,70 @@
+[2025-07-22T00:09:50.972Z] [INFO] Загружено 1 репозиториев из хранилища
+[2025-07-22T00:09:50.988Z] [INFO] Команда загружена: /add
+[2025-07-22T00:09:50.989Z] [INFO] Команда загружена: /branches
+[2025-07-22T00:09:50.990Z] [INFO] Команда загружена: /check
+[2025-07-22T00:09:50.990Z] [INFO] Команда загружена: /help
+[2025-07-22T00:09:50.991Z] [INFO] Команда загружена: /last
+[2025-07-22T00:09:50.992Z] [INFO] Команда загружена: /limits
+[2025-07-22T00:09:50.993Z] [INFO] Команда загружена: /list
+[2025-07-22T00:09:50.995Z] [INFO] Команда загружена: /pr
+[2025-07-22T00:09:50.996Z] [INFO] Команда загружена: /prview
+[2025-07-22T00:09:50.997Z] [INFO] Команда загружена: /remove
+[2025-07-22T00:10:00.038Z] [INFO] 
+=== Автопроверка начата ===
+[2025-07-22T00:10:00.038Z] [INFO] 🔍 Запуск проверки 1 репозиториев...
+[2025-07-22T00:10:00.039Z] [INFO] Проверка combatextended-continued/combatextended (main)...
+[2025-07-22T00:10:00.390Z] [ERROR] Failed to get branch last commit: combatextended-continued/combatextended/main: Request failed with status code 404 AxiosError: Request failed with status code 404
+    at settle (D:\code\checkerbot\node_modules\axios\dist\node\axios.cjs:2053:12)
+    at Unzip.handleStreamEnd (D:\code\checkerbot\node_modules\axios\dist\node\axios.cjs:3170:11)
+    at Unzip.emit (node:events:530:35)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+    at Axios.request (D:\code\checkerbot\node_modules\axios\dist\node\axios.cjs:4280:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.getBranchLastCommit (D:\code\checkerbot\service\github.js:126:26)
+    at async Object.checkAllRepos (D:\code\checkerbot\service\checker.js:26:30)
+    at async D:\code\checkerbot\bot.js:26:5
+    at async Timeout._onTimeout (D:\code\checkerbot\node_modules\node-cron\dist\cjs\scheduler\runner.js:70:44)
+[2025-07-22T00:10:00.391Z] [ERROR] undefined undefined
+[2025-07-22T00:10:00.391Z] [INFO] Проверка завершена. Обновлений: 0/0
+[2025-07-22T00:10:00.391Z] [INFO] === Автопроверка завершена ===
+
+[2025-07-22T00:10:23.072Z] [INFO] 
+🤖 Бот запущен!
+[2025-07-22T00:10:23.073Z] [INFO] ⏱ Автопроверка каждые 5 минут
+[2025-07-22T00:15:00.031Z] [INFO] 
+=== Автопроверка начата ===
+[2025-07-22T00:15:00.031Z] [INFO] 🔍 Запуск проверки 1 репозиториев...
+[2025-07-22T00:15:00.032Z] [INFO] Проверка combatextended-continued/combatextended (main)...
+[2025-07-22T00:15:00.364Z] [ERROR] Failed to get branch last commit: combatextended-continued/combatextended/main: Request failed with status code 404 AxiosError: Request failed with status code 404
+    at settle (D:\code\checkerbot\node_modules\axios\dist\node\axios.cjs:2053:12)
+    at Unzip.handleStreamEnd (D:\code\checkerbot\node_modules\axios\dist\node\axios.cjs:3170:11)
+    at Unzip.emit (node:events:530:35)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+    at Axios.request (D:\code\checkerbot\node_modules\axios\dist\node\axios.cjs:4280:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.getBranchLastCommit (D:\code\checkerbot\service\github.js:126:26)
+    at async Object.checkAllRepos (D:\code\checkerbot\service\checker.js:26:30)
+    at async D:\code\checkerbot\bot.js:26:5
+    at async Timeout._onTimeout (D:\code\checkerbot\node_modules\node-cron\dist\cjs\scheduler\runner.js:70:44)
+[2025-07-22T00:15:00.365Z] [ERROR] undefined undefined
+[2025-07-22T00:15:00.367Z] [INFO] Проверка завершена. Обновлений: 0/0
+[2025-07-22T00:15:00.368Z] [INFO] === Автопроверка завершена ===
+
+[2025-07-22T00:21:06.545Z] [INFO] Загружено 1 репозиториев из хранилища
+[2025-07-22T00:21:06.556Z] [INFO] Команда загружена: /add
+[2025-07-22T00:21:06.556Z] [INFO] Команда загружена: /branches
+[2025-07-22T00:21:06.557Z] [INFO] Команда загружена: /check
+[2025-07-22T00:21:06.558Z] [INFO] Команда загружена: /help
+[2025-07-22T00:21:06.558Z] [INFO] Команда загружена: /last
+[2025-07-22T00:21:06.559Z] [INFO] Команда загружена: /limits
+[2025-07-22T00:21:06.560Z] [INFO] Команда загружена: /list
+[2025-07-22T00:21:06.563Z] [INFO] Команда загружена: /pr
+[2025-07-22T00:21:06.564Z] [INFO] Команда загружена: /prview
+[2025-07-22T00:21:06.565Z] [INFO] Команда загружена: /remove
+[2025-07-22T00:21:26.593Z] [INFO] 🔍 Запуск проверки 1 репозиториев...
+[2025-07-22T00:21:26.594Z] [INFO] Проверка combatextended-continued/combatextended (Development)...
+[2025-07-22T00:21:26.979Z] [INFO] ✓ Актуально: combatextended-continued/combatextended [385ms]
+[2025-07-22T00:21:26.980Z] [INFO] Проверка завершена. Обновлений: 0/1
+[2025-07-22T00:21:49.214Z] [SUCCESS] Добавлен репозиторий: mollyhollyray/checkerbot
