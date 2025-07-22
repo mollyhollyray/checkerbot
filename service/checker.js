@@ -2,8 +2,6 @@ const github = require('./github');
 const storage = require('./storage');
 const { log, logError } = require('../utils/logger');
 const config = require('../config');
-const { formatDistanceToNow } = require('date-fns');
-const { ru } = require('date-fns/locale');
 
 module.exports = {
   async checkAllRepos(bot) {
@@ -81,7 +79,7 @@ module.exports = {
     const commitDate = new Date(commit.commit.committer.date);
     const firstLine = commit.commit.message.split('\n')[0];
     const otherLines = commit.commit.message.split('\n').slice(1).join('\n').trim();
-    const timeAgo = formatDistanceToNow(commitDate, { addSuffix: true, locale: ru });
+    const timeAgo = this.formatTimeAgo(commitDate);
 
     return `
 <b>🆕 Новый коммит в ${update.repo}</b> (<code>${update.branch}</code>)
@@ -96,6 +94,40 @@ ${otherLines ? `<pre>${escapeHtml(otherLines)}</pre>` : ''}
 ━━━━━━━━━━━━━━━━━━
 <code>/last ${update.repo} ${update.branch} 3</code> - показать последние 3 коммита
     `;
+  },
+
+  formatTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    const intervals = {
+      год: 31536000,
+      месяц: 2592000,
+      неделя: 604800,
+      день: 86400,
+      час: 3600,
+      минута: 60,
+      секунда: 1
+    };
+
+    for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+      const interval = Math.floor(seconds / secondsInUnit);
+      if (interval >= 1) {
+        return `${interval} ${this.declOfNum(interval, [
+          unit,
+          unit + 'а',
+          unit + 'ов'
+        ])} назад`;
+      }
+    }
+    return 'только что';
+  },
+
+  declOfNum(number, titles) {
+    const cases = [2, 0, 1, 1, 1, 2];
+    return titles[
+      number % 100 > 4 && number % 100 < 20
+        ? 2
+        : cases[number % 10 < 5 ? number % 10 : 5]
+    ];
   }
 };
 
