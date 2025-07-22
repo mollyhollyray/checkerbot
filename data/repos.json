@@ -1,21 +1,12 @@
 [
   [
-    "combatextended-continued/combatextended",
-    {
-      "lastCommitSha": "a0909face4a02e998c1c652cb39fd652af9a0356",
-      "lastCommitTime": 1753060163000,
-      "defaultBranch": "Development",
-      "addedAt": "2025-07-21T13:17:08.839Z"
-    }
-  ],
-  [
     "mollyhollyray/checkerbot",
     {
       "defaultBranch": "main",
       "branch": "main",
-      "addedAt": "2025-07-22T00:21:49.086Z",
-      "lastCommitSha": "0f7afb2f18e365837740581953aba23491ae2223",
-      "lastCommitTime": 1753128577000
+      "addedAt": "2025-07-22T00:23:59.733Z",
+      "lastCommitSha": "ee9350be19546591e122a031bec1b6ee6a6ff258",
+      "lastCommitTime": 1753143731000
     }
   ]
 ]
