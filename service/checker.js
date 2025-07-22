@@ -29,8 +29,10 @@ module.exports = {
 
         if (!latestCommit) {
           logError(`Ветка ${branch} не найдена в репозитории ${fullName}`);
-          await sendMessage(bot, config.ADMIN_USER_ID, 
-            `❌ Ветка ${branch} не найдена в репозитории ${fullName}`);
+          await bot.telegram.sendMessage(
+            config.ADMIN_USER_ID,
+            `❌ Ветка ${branch} не найдена в репозитории ${fullName}`
+          );
           continue;
         }
 
@@ -53,8 +55,10 @@ module.exports = {
         checkedCount++;
       } catch (error) {
         logError(`❌ Ошибка проверки ${fullName}: ${error.message}`);
-        await sendMessage(bot, config.ADMIN_USER_ID, 
-          `❌ Ошибка проверки ${fullName}: ${error.message}`);
+        await bot.telegram.sendMessage(
+          config.ADMIN_USER_ID,
+          `❌ Ошибка проверки ${fullName}: ${error.message}`
+        );
       }
     }
 
@@ -67,9 +71,11 @@ module.exports = {
     for (const update of updates) {
       try {
         const message = this.formatUpdateMessage(update);
-        await sendMessage(bot, config.ADMIN_USER_ID, message, { 
-          parse_mode: 'HTML' 
-        });
+        await bot.telegram.sendMessage(
+          config.ADMIN_USER_ID, 
+          message,
+          { parse_mode: 'HTML' }
+        );
         log(`Уведомление отправлено: ${update.repo}`);
       } catch (error) {
         logError(`Ошибка отправки уведомления: ${error.message}`);
