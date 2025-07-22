@@ -87,3 +87,48 @@
 [2025-07-22T00:24:01.939Z] [INFO] Проверка mollyhollyray/checkerbot (main)...
 [2025-07-22T00:24:02.160Z] [INFO] ✓ Актуально: mollyhollyray/checkerbot [219ms]
 [2025-07-22T00:24:02.161Z] [INFO] Проверка завершена. Обновлений: 0/1
+[2025-07-22T00:24:57.415Z] [SUCCESS] Добавлен репозиторий: combatextended-continued/combatextended
+[2025-07-22T00:25:00.037Z] [INFO] 
+=== Автопроверка начата ===
+[2025-07-22T00:25:00.038Z] [INFO] 🔍 Запуск проверки 2 репозиториев...
+[2025-07-22T00:25:00.039Z] [INFO] Проверка mollyhollyray/checkerbot (main)...
+[2025-07-22T00:25:00.267Z] [INFO] 🆕 Обновление: mollyhollyray/checkerbot ee9350b→e77f825 [228ms]
+[2025-07-22T00:25:00.268Z] [INFO] Проверка combatextended-continued/combatextended (Development)...
+[2025-07-22T00:25:00.536Z] [INFO] ✓ Актуально: combatextended-continued/combatextended [268ms]
+[2025-07-22T00:25:00.537Z] [INFO] Проверка завершена. Обновлений: 1/2
+[2025-07-22T00:25:00.538Z] [ERROR] Failed to send message: ctx.reply is not a function TypeError: ctx.reply is not a function
+    at sendMessage (D:\code\checkerbot\utils\message.js:47:15)
+    at sendMessage (D:\code\checkerbot\utils\message.js:54:14)
+    at sendMessage (D:\code\checkerbot\utils\message.js:54:14)
+    at Object.notifyUpdates (D:\code\checkerbot\service\checker.js:70:15)
+    at Object.checkAllRepos (D:\code\checkerbot\service\checker.js:62:40)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async D:\code\checkerbot\bot.js:26:5
+    at async Timeout._onTimeout (D:\code\checkerbot\node_modules\node-cron\dist\cjs\scheduler\runner.js:70:44)
+[2025-07-22T00:25:00.539Z] [ERROR] Fallback message failed: ctx.reply is not a function TypeError: ctx.reply is not a function
+    at sendMessage (D:\code\checkerbot\utils\message.js:61:17)
+    at sendMessage (D:\code\checkerbot\utils\message.js:54:14)
+    at sendMessage (D:\code\checkerbot\utils\message.js:54:14)
+    at Object.notifyUpdates (D:\code\checkerbot\service\checker.js:70:15)
+    at Object.checkAllRepos (D:\code\checkerbot\service\checker.js:62:40)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async D:\code\checkerbot\bot.js:26:5
+    at async Timeout._onTimeout (D:\code\checkerbot\node_modules\node-cron\dist\cjs\scheduler\runner.js:70:44)
+[2025-07-22T00:25:00.539Z] [INFO] Уведомление отправлено: mollyhollyray/checkerbot
+[2025-07-22T00:25:00.539Z] [INFO] === Автопроверка завершена ===
+
+[2025-07-22T00:26:02.780Z] [INFO] 
+🤖 Бот запущен!
+[2025-07-22T00:26:02.780Z] [INFO] ⏱ Автопроверка каждые 5 минут
+[2025-07-22T00:26:04.814Z] [INFO] Загружено 1 репозиториев из хранилища
+[2025-07-22T00:26:04.823Z] [INFO] Команда загружена: /add
+[2025-07-22T00:26:04.824Z] [INFO] Команда загружена: /branches
+[2025-07-22T00:26:04.825Z] [INFO] Команда загружена: /check
+[2025-07-22T00:26:04.825Z] [INFO] Команда загружена: /help
+[2025-07-22T00:26:04.826Z] [INFO] Команда загружена: /last
+[2025-07-22T00:26:04.827Z] [INFO] Команда загружена: /limits
+[2025-07-22T00:26:04.828Z] [INFO] Команда загружена: /list
+[2025-07-22T00:26:04.830Z] [INFO] Команда загружена: /pr
+[2025-07-22T00:26:04.831Z] [INFO] Команда загружена: /prview
+[2025-07-22T00:26:04.832Z] [INFO] Команда загружена: /remove
+[2025-07-22T00:26:29.635Z] [SUCCESS] Добавлен репозиторий: combatextended-continued/combatextended

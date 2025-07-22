@@ -8,5 +8,15 @@
       "lastCommitSha": "ee9350be19546591e122a031bec1b6ee6a6ff258",
       "lastCommitTime": 1753143731000
     }
+  ],
+  [
+    "combatextended-continued/combatextended",
+    {
+      "defaultBranch": "Development",
+      "branch": "Development",
+      "addedAt": "2025-07-22T00:26:29.542Z",
+      "lastCommitSha": "a0909face4a02e998c1c652cb39fd652af9a0356",
+      "lastCommitTime": 1753060163000
+    }
   ]
 ]
