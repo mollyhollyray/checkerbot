@@ -7,7 +7,6 @@ const storage = require('./service/storage');
 // Инициализация бота
 const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
 
-// Загрузка команд
 const commands = {
   add: require('./commands/add'),
   branches: require('./commands/branches'),
