@@ -1,32 +1,27 @@
 const axios = require('axios');
-const { sendMessage, sendLongMessage, escapeMarkdown } = require('../utils/message');
+const { sendMessage, escapeMarkdown } = require('../utils/message');
 const { log, logError } = require('../utils/logger');
 const config = require('../config');
 const NodeCache = require('node-cache');
 
-// Константы
-const PR_CACHE_TTL = 300; // 5 минут в секундах
-const MAX_PR_PER_REQUEST = 15; // Максимальное количество PR для запроса
-const MAX_MESSAGE_LENGTH = 4096 - 500; // Лимит Telegram с запасом
-
-// Инициализация кэша
+const PR_CACHE_TTL = 300;
+const MAX_PR_PER_REQUEST = 15;
 const prCache = new NodeCache({ stdTTL: PR_CACHE_TTL });
 
 module.exports = async (ctx) => {
     const args = ctx.message.text.split(' ').filter(arg => arg.trim());
     
-    // Проверка формата команды
     if (args.length < 2) {
         return sendMessage(
             ctx,
             '❌ *Формат команды*\n\n' +
-            '▸ Используйте: `/pr владелец/репозиторий [состояние=open] [лимит=5] [label:метка]`\n' +
+            '▸ Используйте: `/pr owner/repo [state=open] [limit=5] [label:tag] [author:name]`\n' +
             '▸ *Состояния:* `open` (по умолчанию), `closed`, `all`\n' +
             '▸ *Лимит:* максимум 15 PR\n' +
             '▸ *Примеры:*\n' +
             '   `/pr facebook/react`\n' +
             '   `/pr vuejs/core closed 10`\n' +
-            '   `/pr axios/axios all 5 label:bug`',
+            '   `/pr axios/axios all 5 label:bug author:john`',
             { parse_mode: 'MarkdownV2' }
         );
     }
@@ -35,7 +30,7 @@ module.exports = async (ctx) => {
     if (!owner || !repo) {
         return sendMessage(
             ctx,
-            '❌ Неверный формат. Используйте: `владелец/репозиторий`',
+            '❌ Неверный формат. Используйте: `owner/repo`',
             { parse_mode: 'MarkdownV2' }
         );
     }
@@ -44,16 +39,25 @@ module.exports = async (ctx) => {
     let state = 'open';
     let limit = 5;
     let label = null;
-
-    // Парсинг аргументов
-    args.slice(2).forEach(arg => {
-        if (['open', 'closed', 'all'].includes(arg)) state = arg;
-        else if (/^\d+$/.test(arg)) limit = Math.min(parseInt(arg), MAX_PR_PER_REQUEST);
-        else if (arg.startsWith('label:')) label = arg.substring(6).trim();
-    });
+    let author = null;
 
     try {
-        const cacheKey = `${repoKey}-${state}-${label || 'no-label'}`;
+        await ctx.replyWithChatAction('typing');
+
+        // Парсинг аргументов
+        args.slice(2).forEach(arg => {
+            if (['open', 'closed', 'all'].includes(arg)) {
+                state = arg;
+            } else if (/^\d+$/.test(arg)) {
+                limit = Math.min(parseInt(arg), MAX_PR_PER_REQUEST);
+            } else if (arg.startsWith('label:')) {
+                label = arg.substring(6).trim();
+            } else if (arg.startsWith('author:')) {
+                author = arg.substring(7).trim();
+            }
+        });
+
+        const cacheKey = `${repoKey}-${state}-${label || 'no-label'}-${author || 'no-author'}`;
         let pullRequests = prCache.get(cacheKey);
 
         if (!pullRequests) {
@@ -61,9 +65,10 @@ module.exports = async (ctx) => {
                 state,
                 per_page: limit,
                 sort: 'updated',
-                direction: 'desc',
-                ...(label && { labels: label })
+                direction: 'desc'
             };
+            if (label) params.labels = label;
+            if (author) params.creator = author;
 
             const response = await axios.get(
                 `https://api.github.com/repos/${owner}/${repo}/pulls`,
@@ -80,20 +85,21 @@ module.exports = async (ctx) => {
         }
 
         if (!pullRequests?.length) {
-            const message = label
-                ? `🔍 В *${escapeMarkdown(repoKey)}* нет PR (${state}, метка \`${escapeMarkdown(label)}\`)`
-                : `🔍 В *${escapeMarkdown(repoKey)}* нет PR со статусом \`${state}\``;
+            let message = `🔍 В *${escapeMarkdown(repoKey)}* нет PR`;
+            if (state !== 'open') message += ` со статусом \`${state}\``;
+            if (label) message += ` с меткой \`${escapeMarkdown(label)}\``;
+            if (author) message += ` от автора \`${escapeMarkdown(author)}\``;
             return sendMessage(ctx, message, { parse_mode: 'MarkdownV2' });
         }
 
-        // Формирование сообщения с разбивкой
         let header = `📌 *Pull Requests в ${escapeMarkdown(repoKey)}*\n` +
-                    `┣ *Фильтры:* \`${state}\`${label ? ` + \`${escapeMarkdown(label)}\`` : ''}\n` +
+                    `┣ *Фильтры:* \`${state}\`` +
+                    (label ? ` + \`${escapeMarkdown(label)}\`` : '') +
+                    (author ? ` + автор:\`${escapeMarkdown(author)}\`` : '') + '\n' +
                     `┗ *Найдено:* ${pullRequests.length}\n\n`;
 
         await sendMessage(ctx, header, { parse_mode: 'MarkdownV2' });
 
-        // Отправка каждого PR отдельным сообщением
         for (const pr of pullRequests) {
             const emoji = pr.state === 'open' ? '🟢' : pr.merged ? '🟣' : '🔴';
             const status = pr.state === 'open' ? 'Open' : pr.merged ? 'Merged' : 'Closed';

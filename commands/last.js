@@ -1,93 +1,93 @@
-const { getDefaultBranch, fetchCommitsByBranch, getTotalCommitsCount } = require('../service/github');
-const { sendMessage, escapeMarkdown } = require('../utils/message');
-const { log, logError } = require('../utils/logger');
-const storage = require('../service/storage');
+const { getDefaultBranch, fetchCommitsWithNumbers, checkBranchExists } = require('../service/github');
+const { sendMessage, escapeHtml } = require('../utils/message');
+const logger = require('../utils/logger');
 
 module.exports = async (ctx) => {
-    const args = ctx.message.text.split(' ').filter(arg => arg.trim());
-    
-    // Валидация аргументов
-    if (args.length < 2 || !args[1].includes('/')) {
-        return sendMessage(
-            ctx,
-            '❌ *Неверный формат команды*\n\n' +
-            '▸ Используйте: `/last owner/repo [ветка] [количество=5]`\n' +
-            '▸ Примеры:\n' +
-            '   `/last facebook/react main 3`\n' +
-            '   `/last vuejs/core development`',
-            { parse_mode: 'MarkdownV2' }
-        );
-    }
-
-    const [owner, repo] = args[1].split('/');
-    const repoKey = `${owner}/${repo}`.toLowerCase();
-    let branch, count = 5;
-
-    // Парсинг аргументов
-    if (args.length >= 3) {
-        if (!isNaN(args[2])) {
-            count = Math.min(parseInt(args[2]), 20);
-            branch = await getDefaultBranch(owner, repo) || 'main';
-        } else {
-            branch = args[2];
-            if (args.length >= 4) {
-                count = Math.min(parseInt(args[3]), 20);
-            }
-        }
-    } else {
-        branch = await getDefaultBranch(owner, repo) || 'main';
-    }
-
     try {
-        // Получаем общее количество коммитов в ветке
-        const totalCommits = await getTotalCommitsCount(owner, repo, branch);
-        
-        // Получаем последние N коммитов
-        const commits = await fetchCommitsByBranch(owner, repo, branch, count);
+        const inputText = ctx.message?.text || ctx.callbackQuery?.data;
+        if (!inputText) {
+            return await sendMessage(ctx, '❌ Неверный формат команды', { 
+                parse_mode: 'HTML' 
+            });
+        }
 
-        if (commits.length === 0) {
-            return sendMessage(
-                ctx,
-                `🔍 В ветке *${escapeMarkdown(branch)}* репозитория *${escapeMarkdown(repoKey)}* нет коммитов.`,
-                { parse_mode: 'MarkdownV2' }
+        const args = inputText.split(' ').filter(arg => arg.trim());
+        if (args.length < 2 || !args[1].includes('/')) {
+            return sendMessage(ctx,
+                '<b>❌ Неверный формат команды</b>\n\n' +
+                '▸ Используйте: <code>/last owner/repo [ветка] [количество=5]</code>',
+                { parse_mode: 'HTML' }
             );
         }
 
-        // Формирование сообщения
-        let message = `📌 *Последние коммиты в ${escapeMarkdown(repoKey)} (${escapeMarkdown(branch)}):*\n\n` +
-                     `📊 Всего коммитов в ветке: *${totalCommits}*\n\n`;
+        const [owner, repo] = args[1].split('/');
+        const repoKey = `${owner}/${repo}`;
+        let branch, count = 5, page = 1;
+
+        await ctx.replyWithChatAction('typing');
+
+        // Обработка аргументов
+        if (args.length >= 3) {
+            if (!isNaN(parseInt(args[2]))) {
+                count = Math.min(parseInt(args[2]), 20);
+                branch = args.length >= 4 ? args[3] : await getDefaultBranch(owner, repo) || 'main';
+            } else {
+                branch = args[2];
+                if (args.length >= 4) count = Math.min(parseInt(args[3]), 20);
+            }
+        } else {
+            branch = await getDefaultBranch(owner, repo) || 'main';
+        }
+
+        // Проверка ветки
+        if (!await checkBranchExists(owner, repo, branch)) {
+            return sendMessage(ctx,
+                `❌ Ветка <b>${escapeHtml(branch)}</b> не найдена`,
+                { parse_mode: 'HTML' }
+            );
+        }
+
+        // Получаем коммиты
+        const { commits, firstNumber, hasMore } = await fetchCommitsWithNumbers(owner, repo, branch, count, page);
+        
+        if (!commits.length) {
+            return sendMessage(ctx,
+                `🔍 В ветке <b>${escapeHtml(branch)}</b> нет коммитов`,
+                { parse_mode: 'HTML' }
+            );
+        }
+
+        // Формируем сообщение
+        let message = `📌 <b>Коммиты в ${escapeHtml(repoKey)} (${escapeHtml(branch)})</b>\n\n`;
 
         commits.forEach((commit, index) => {
-            const commitNumber = totalCommits - index; // Реальный номер коммита
             const date = new Date(commit.commit.author.date);
-            const shortSha = commit.sha.substring(0, 7);
+            date.setHours(date.getHours() + 3); // UTC+3 для Москвы
             
-            message += `🔹 *Коммит #${commitNumber}*\n` +
-                      `🆔 Хеш: \`${shortSha}\`\n` +
-                      `📅 ${date.toLocaleString('ru-RU')}\n` +
-                      `👤 ${escapeMarkdown(commit.commit.author.name)}\n` +
-                      `📝 ${escapeMarkdown(truncate(commit.commit.message, 100))}\n` +
-                      `🔗 <a href="${commit.html_url}">Ссылка</a>\n\n`;
+            message += 
+`🔹 <b>#${firstNumber + index}</b> <code>${commit.sha.substring(0, 7)}</code>
+├ 🕒 ${date.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}
+├ 👤 ${escapeHtml(commit.commit.author.name)}
+├ 📝 ${escapeHtml(commit.commit.message.split('\n')[0].slice(0, 70))}
+└ 🔗 <a href="${commit.html_url}">Подробнее</a>\n\n`;
         });
 
-        await sendMessage(ctx, message, {
-    parse_ode: 'HTML', // Изменено с MarkdownV2 на HTML
-    disable_web_page_preview: true
-});
+        // Информация о пагинации
+        message += `📊 Показано коммитов: ${commits.length}\n`;
+        if (hasMore) {
+            message += `🔍 Для следующих: <code>/last ${escapeHtml(repoKey)} ${escapeHtml(branch)} ${count} ${page+1}</code>`;
+        }
+
+        await sendMessage(ctx, message, { 
+            parse_mode: 'HTML',
+            disable_web_page_preview: true 
+        });
 
     } catch (error) {
-        logError(error, `Last command failed: ${repoKey}`);
-        await sendMessage(
-            ctx,
-            `❌ Ошибка при получении коммитов: ${error.message || 'Неизвестная ошибка'}`,
-            { parse_mode: 'MarkdownV2' }
+        logger.error(error, 'Last command failed');
+        await sendMessage(ctx,
+            `❌ Ошибка: ${escapeHtml(error.message || 'Неизвестная ошибка')}`,
+            { parse_mode: 'HTML' }
         );
     }
 };
-
-// Вспомогательная функция для обрезки текста
-function truncate(text, maxLength) {
-    return text.length > maxLength 
-        ? text.substring(0, maxLength) + '...' 
-        : text;
-}

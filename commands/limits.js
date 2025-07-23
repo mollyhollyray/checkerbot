@@ -2,32 +2,36 @@ const { apiRateLimit } = require('../service/github');
 const { sendMessage } = require('../utils/message');
 const { log, logError } = require('../utils/logger');
 
+function progressBar(used, total) {
+    const percent = Math.round((used / total) * 10);
+    return `[${'█'.repeat(percent)}${'░'.repeat(10 - percent)}]`;
+}
+
 module.exports = async (ctx) => {
     try {
-        // Проверка наличия данных о лимитах
         if (!apiRateLimit || typeof apiRateLimit.remaining === 'undefined') {
             throw new Error('Данные о лимитах недоступны');
         }
 
-        // Рассчет времени до сброса
         const resetTime = new Date(apiRateLimit.reset * 1000);
-        const timeLeftMinutes = Math.max(0, (apiRateLimit.reset * 1000 - Date.now()) / 60000);
+        const timeLeftMinutes = ((apiRateLimit.reset * 1000 - Date.now()) / 60000).toFixed(1);
 
-        // Формирование данных для вывода
         const limitTotal = apiRateLimit.limit || 60;
         const remaining = apiRateLimit.remaining || 0;
         const used = limitTotal - remaining;
 
         const message = `
-📊 *Лимиты GitHub API*:
+📊 *Лимиты GitHub API*
 
 ▸ Использовано: ${used}/${limitTotal}
-▸ Осталось: ${remaining}
-▸ Обновление через: ${timeLeftMinutes.toFixed(1)} минут
+${progressBar(used, limitTotal)} ${Math.round((used/limitTotal)*100)}%
+▸ Осталось: ${remaining} запросов
+▸ Обновление через: ${timeLeftMinutes} минут
 ▸ Полное обновление: ${resetTime.toLocaleTimeString('ru-RU')}
 
-ℹ️ Лимиты обновляются каждый час.
-Для критичных операций используйте GitHub Personal Token.
+ℹ️ *Советы:*
+- Для увеличения лимитов добавьте GITHUB_TOKEN в .env
+- Критичные запросы: не более 5/мин
 `;
 
         await sendMessage(ctx, message, { 

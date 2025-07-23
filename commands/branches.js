@@ -1,60 +1,78 @@
-const { fetchRepoBranches, getBranchLastCommit, getDefaultBranch, getTotalBranchesCount } = require('../service/github');
-const { sendMessage, sendLongMessage } = require('../utils/message');
+const { fetchRepoBranches, getBranchLastCommit, getDefaultBranch, getTotalBranchesCount, checkBranchExists } = require('../service/github');
+const { sendMessage, sendLongMessage, escapeHtml } = require('../utils/message');
 const { log, logError } = require('../utils/logger');
+const storage = require('../service/storage');
+const NodeCache = require('node-cache');
 
-// Константы
+const branchesCache = new NodeCache({ stdTTL: 300 });
 const DEFAULT_BRANCHES_LIMIT = 15;
 const MAX_BRANCHES_LIMIT = 50;
 
-// Кастомное экранирование (без обработки - и /)
-function customEscape(text) {
-  return text.replace(/[_*[\]()~`>#+=|{}.!]/g, '\\$&');
-}
-
 module.exports = async (ctx) => {
-    const args = ctx.message.text.split(' ').slice(1);
-    
-    // Валидация формата команды
-    if (!args[0]?.includes('/')) {
-        return sendMessage(
-            ctx,
-            '❌ Неверный формат\n' +
-            'Используйте: /branches владелец/репозиторий [количество=15]\n' +
-            'Примеры:\n' +
-            '/branches facebook/react\n' +
-            '/branches vuejs/core 25',
-            { parse_mode: 'MarkdownV2' }
-        );
-    }
-
-    const [owner, repo] = args[0].split('/');
-    const repoName = `${owner}/${repo}`; // Не экранируем путь к репозиторию
-    let limit = DEFAULT_BRANCHES_LIMIT;
-
-    // Парсинг количества веток
-    if (args.length >= 2 && !isNaN(args[1])) {
-        limit = Math.min(parseInt(args[1]), MAX_BRANCHES_LIMIT);
-    }
-
     try {
-        // Получаем данные параллельно
+        // Debug logging
+        console.log('Command context:', {
+            text: ctx.message?.text,
+            callback: ctx.callbackQuery?.data
+        });
+
+        // Handle callback or command input
+        let args;
+        if (ctx.callbackQuery) {
+            // Extract from callback data "help_branches owner/repo"
+            const callbackData = ctx.callbackQuery.data.split(' ');
+            args = ['/branches', callbackData[1] || ''];
+        } else {
+            args = ctx.message.text.split(' ').filter(arg => arg.trim());
+        }
+
+        // Get default repo if no args
+        if (!args[1]?.includes('/')) {
+            const defaultRepo = storage.getFirstRepo();
+            if (!defaultRepo) {
+                await sendMessage(
+                    ctx,
+                    '<b>❌ Нет отслеживаемых репозиториев</b>\n\n' +
+                    'Добавьте репозиторий командой /add',
+                    { parse_mode: 'HTML' }
+                );
+                if (ctx.callbackQuery) await ctx.answerCbQuery();
+                return;
+            }
+            args[1] = defaultRepo;
+        }
+
+        const [owner, repo] = args[1].split('/');
+        const repoName = `${owner}/${repo}`;
+        let limit = DEFAULT_BRANCHES_LIMIT;
+
+        if (args.length >= 3 && !isNaN(args[2])) {
+            limit = Math.min(parseInt(args[2]), MAX_BRANCHES_LIMIT);
+        }
+
+        await ctx.replyWithChatAction('typing');
+
+        const cacheKey = `${repoName}-branches-${limit}`;
+        const cached = branchesCache.get(cacheKey);
+        if (cached) {
+            await sendMessage(ctx, cached, { parse_mode: 'HTML' });
+            if (ctx.callbackQuery) await ctx.answerCbQuery();
+            return;
+        }
+
         const [totalBranches, branches, defaultBranch] = await Promise.all([
             getTotalBranchesCount(owner, repo),
             fetchRepoBranches(owner, repo, limit),
             getDefaultBranch(owner, repo)
         ]);
 
-        // Проверка наличия веток
         if (!branches?.length) {
-            return sendMessage(
-                ctx,
-                `🌿 ${repoName}\n\n` +
-                'В репозитории не найдено веток',
-                { parse_mode: 'HTML' }
-            );
+            const msg = `🌿 <b>${escapeHtml(repoName)}</b>\n\nВ репозитории не найдено веток`;
+            await sendMessage(ctx, msg, { parse_mode: 'HTML' });
+            if (ctx.callbackQuery) await ctx.answerCbQuery();
+            return;
         }
 
-        // Получаем информацию о коммитах
         const branchesWithStatus = await Promise.all(
             branches.map(async branch => {
                 const commit = await getBranchLastCommit(owner, repo, branch);
@@ -67,15 +85,13 @@ module.exports = async (ctx) => {
             })
         );
         
-        // Сортировка
         branchesWithStatus.sort((a, b) => {
             if (a.name === defaultBranch) return -1;
             if (b.name === defaultBranch) return 1;
             return new Date(b.lastCommit) - new Date(a.lastCommit);
         });
 
-        // Формируем сообщение
-        let message = `🌳 <b>${repoName}</b> 🌳\n` +
+        let message = `🌳 <b>${escapeHtml(repoName)}</b> 🌳\n` +
                      `📊 <b>Всего веток:</b> ${totalBranches} (показано ${branches.length})\n` +
                      '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n\n';
 
@@ -85,33 +101,41 @@ module.exports = async (ctx) => {
             const shortSha = branch.lastCommitSha?.slice(0, 7) || 'unknown';
             const date = branch.lastCommit ? formatDate(branch.lastCommit) : 'неизвестно';
             
-            message += `${isDefault ? '👑' : '▸'} <b>${branch.name}</b> ` +
+            message += `${isDefault ? '👑' : '▸'} <b>${escapeHtml(branch.name)}</b> ` +
                       (isDefault ? '(по умолчанию)' : '') + '\n' +
                       `   ${statusEmoji} Последний коммит: ${date}\n` +
                       `   🆔 ${shortSha} <a href="${branch.commitUrl}">Ссылка</a>\n\n`;
         });
 
         message += '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n' +
-                  `Для просмотра коммитов: /last ${repoName} [ветка]\n` +
-                  `Чтобы показать больше веток: /branches ${repoName} [количество]`;
+                  `Для просмотра коммитов: /last ${escapeHtml(repoName)} [ветка]\n` +
+                  `Чтобы показать больше веток: /branches ${escapeHtml(repoName)} [количество]`;
 
-        // Отправляем в HTML-режиме
+        branchesCache.set(cacheKey, message);
         await sendLongMessage(ctx, message, { 
             parse_mode: 'HTML',
             disable_web_page_preview: true
         });
 
+        if (ctx.callbackQuery) await ctx.answerCbQuery();
+
     } catch (error) {
-        logError(error, `Branches command failed: ${owner}/${repo}`);
+        logError(error, `Branches command failed: ${error.message}`);
+        
+        const errorMsg = error.response?.status === 404
+            ? 'Репозиторий не найден'
+            : error.message || 'Неизвестная ошибка';
+        
         await sendMessage(
             ctx,
-            `❌ Ошибка: ${error.message}`,
+            `❌ Ошибка: ${escapeHtml(errorMsg)}`,
             { parse_mode: 'HTML' }
         );
+        
+        if (ctx.callbackQuery) await ctx.answerCbQuery('❌ Ошибка');
     }
 };
 
-// Остальные функции без изменений
 function getBranchEmoji(lastCommitDate) {
     if (!lastCommitDate) return '🔴';
     const daysDiff = (Date.now() - new Date(lastCommitDate)) / (1000 * 60 * 60 * 24);

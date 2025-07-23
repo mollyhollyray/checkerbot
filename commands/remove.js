@@ -1,17 +1,17 @@
 const { log, logError } = require('../utils/logger');
 const { sendMessage } = require('../utils/message');
-const storage = require('../service/storage'); // Только storage
+const storage = require('../service/storage');
+const { escapeHtml } = require('../utils/message');
 
 module.exports = async (ctx) => {
   try {
     const args = ctx.message.text.split(' ').slice(1);
     
-    // Проверка формата команды
     if (args.length < 1 || !args[0].includes('/')) {
       return await sendMessage(
         ctx,
         '<b>❌ Неверный формат команды</b>\n\n' +
-        '<i>Формат:</i> <code>/remove &lt;владелец/репозиторий&gt;</code>\n\n' +
+        '<i>Формат:</i> <code>/remove &lt;owner/repo&gt;</code>\n\n' +
         '<i>Пример:</i>\n' +
         '<code>/remove facebook/react</code>',
         { parse_mode: 'HTML' }
@@ -21,26 +21,30 @@ module.exports = async (ctx) => {
     const [owner, repo] = args[0].split('/');
     const repoKey = `${owner}/${repo}`.toLowerCase();
 
-    // Удаление из хранилища
-    if (storage.removeRepo(owner, repo)) {
-      await sendMessage(
-        ctx,
-        `✅ <b>Репозиторий удалён из отслеживания!</b>\n\n` +
-        `📂 <code>${escapeHtml(repoKey)}</code>\n` +
-        `🕒 ${formatDate(new Date())}\n\n` +
-        `Для повторного добавления: <code>/add ${escapeHtml(repoKey)}</code>`,
-        { parse_mode: 'HTML' }
-      );
-      log(`Repo removed: ${repoKey}`, 'success');
-    } else {
-      await sendMessage(
-        ctx,
-        `ℹ️ <b>Репозиторий не найден в отслеживаемых</b>\n\n` +
-        `<code>${escapeHtml(repoKey)}</code>\n\n` +
-        `Проверьте список: /list`,
-        { parse_mode: 'HTML' }
-      );
-    }
+    // Подтверждение удаления
+    await sendMessage(
+      ctx,
+      `⚠️ <b>Подтвердите удаление репозитория</b>\n\n` +
+      `<code>${escapeHtml(repoKey)}</code>\n\n` +
+      `Будут удалены все данные отслеживания.`,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { 
+                text: "✅ Да, удалить", 
+                callback_data: `confirm_remove_${repoKey}`
+              },
+              { 
+                text: "❌ Отмена", 
+                callback_data: "cancel_remove"
+              }
+            ]
+          ]
+        }
+      }
+    );
 
   } catch (error) {
     logError(error, 'Remove command failed');
@@ -52,22 +56,3 @@ module.exports = async (ctx) => {
     );
   }
 };
-
-// Форматирование даты
-function formatDate(date) {
-  return date.toLocaleString('ru-RU', { 
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
-// Экранирование HTML
-function escapeHtml(text) {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}

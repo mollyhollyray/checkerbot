@@ -1,22 +1,13 @@
 [
   [
-    "mollyhollyray/checkerbot",
-    {
-      "defaultBranch": "main",
-      "branch": "main",
-      "addedAt": "2025-07-22T00:23:59.733Z",
-      "lastCommitSha": "ee9350be19546591e122a031bec1b6ee6a6ff258",
-      "lastCommitTime": 1753143731000
-    }
-  ],
-  [
     "combatextended-continued/combatextended",
     {
       "defaultBranch": "Development",
       "branch": "Development",
-      "addedAt": "2025-07-22T00:26:29.542Z",
-      "lastCommitSha": "a0909face4a02e998c1c652cb39fd652af9a0356",
-      "lastCommitTime": 1753060163000
+      "addedAt": "2025-07-22T00:51:12.297Z",
+      "lastCommitSha": "3417c09df2ecb0e85f697f0d0be1dc7db8d280e9",
+      "lastCommitTime": 1753247124000,
+      "lastCommitMessage": "Merge pull request #4085 from CombatExtended-Continued/Fix-VWE-Patches\n\nFix VWE patches"
     }
   ]
 ]

@@ -24,6 +24,11 @@ class Storage {
       log(`Ошибка инициализации хранилища: ${error.message}`);
     }
   }
+  
+getFirstRepo() {
+    const repos = this.getRepos();
+    return repos.length > 0 ? repos[0][0] : null; // возвращает "owner/repo"
+  }
 
   save() {
     try {
@@ -32,8 +37,10 @@ class Storage {
         JSON.stringify([...this.repos], null, 2),
         'utf-8'
       );
+      return true;
     } catch (error) {
       log(`Ошибка сохранения хранилища: ${error.message}`);
+      return false;
     }
   }
 
@@ -45,12 +52,13 @@ class Storage {
     const key = `${owner}/${repo}`.toLowerCase();
     this.repos.set(key, {
       defaultBranch: data.defaultBranch || 'main',
-      branch: data.defaultBranch || 'main', // Дублируем для совместимости
+      branch: data.branch || data.defaultBranch || 'main',
       addedAt: new Date().toISOString(),
+      lastCommitSha: data.lastCommitSha,
+      lastCommitTime: data.lastCommitTime,
       ...data
     });
-    this.save();
-    return true;
+    return this.save();
   }
 
   removeRepo(owner, repo) {
@@ -62,18 +70,25 @@ class Storage {
 
   updateRepoCommit(owner, repo, commitData) {
     const key = `${owner}/${repo}`.toLowerCase();
-    if (this.repos.has(key)) {
-      const repoData = this.repos.get(key);
-      this.repos.set(key, {
-        ...repoData,
-        lastCommitSha: commitData.sha,
-        lastCommitTime: new Date(commitData.commit.committer.date).getTime(),
-        lastCommitMessage: commitData.commit.message
-      });
-      this.save();
-      return true;
+    if (!this.repos.has(key)) return false;
+
+    const repoData = this.repos.get(key);
+    const newData = {
+      ...repoData,
+      lastCommitSha: commitData.sha,
+      lastCommitTime: new Date(commitData.commit.committer.date).getTime(),
+      lastCommitMessage: commitData.commit.message
+    };
+
+    if (repoData.lastCommitSha !== newData.lastCommitSha) {
+      this.repos.set(key, newData);
+      return this.save();
     }
     return false;
+  }
+
+  repoExists(owner, repo) {
+    return this.repos.has(`${owner}/${repo}`.toLowerCase());
   }
 }
 

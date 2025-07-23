@@ -1,115 +1,114 @@
-const storage = require('../service/storage');
-const { sendMessage, sendLongMessage } = require('../utils/message');
-const { log, logError } = require('../utils/logger');
+const { getDefaultBranch, fetchCommitsByBranch, getTotalCommitsCount, checkBranchExists } = require('../service/github');
+const { sendMessage, escapeMarkdown } = require('../utils/message');
+const logger = require('../utils/logger');
 
 module.exports = async (ctx) => {
-  try {
-    const repos = storage.getRepos();
-    
-    if (repos.length === 0) {
-      return await sendMessage(
-        ctx,
-        '<b>📭 Список отслеживаемых репозиториев пуст</b>\n\n' +
-        'Добавьте первый репозиторий командой:\n' +
-        '<code>/add владелец/репозиторий</code>',
-        { parse_mode: 'HTML' }
-      );
+    try {
+        // Проверяем, откуда пришел вызов (команда или callback)
+        const inputText = ctx.message?.text || ctx.callbackQuery?.data;
+        if (!inputText) {
+            return await sendMessage(
+                ctx,
+                '❌ Неверный формат команды',
+                { parse_mode: 'MarkdownV2' }
+            );
+        }
+
+        const args = inputText.split(' ').filter(arg => arg.trim());
+        
+        if (args.length < 2 || !args[1].includes('/')) {
+            return sendMessage(
+                ctx,
+                '❌ *Неверный формат команды*\n\n' +
+                '▸ Используйте: `/last owner/repo [branch] [count=5]`\n' +
+                '▸ Примеры:\n' +
+                '   `/last facebook/react main 3`\n' +
+                '   `/last vuejs/core development`',
+                { parse_mode: 'MarkdownV2' }
+            );
+        }
+
+        const [owner, repo] = args[1].split('/');
+        const repoKey = `${owner}/${repo}`.toLowerCase();
+        let branch, count = 5, page = 1;
+
+        await ctx.replyWithChatAction('typing');
+
+        // Парсинг аргументов
+        if (args.length >= 3) {
+            if (!isNaN(args[2])) {
+                count = Math.min(parseInt(args[2]), 20);
+                branch = await getDefaultBranch(owner, repo) || 'main';
+                if (args.length >= 4) page = parseInt(args[3]) || 1;
+            } else {
+                branch = args[2];
+                if (args.length >= 4) count = Math.min(parseInt(args[3]), 20);
+            }
+        } else {
+            branch = await getDefaultBranch(owner, repo) || 'main';
+        }
+
+        // Проверка существования ветки
+        const branchExists = await checkBranchExists(owner, repo, branch);
+        if (!branchExists) {
+            return sendMessage(
+                ctx,
+                `❌ Ветка "${branch}" не найдена в ${repoKey}`,
+                { parse_mode: 'MarkdownV2' }
+            );
+        }
+
+        const [totalCommits, commits] = await Promise.all([
+            getTotalCommitsCount(owner, repo, branch),
+            fetchCommitsByBranch(owner, repo, branch, count, page)
+        ]);
+
+        if (!commits.length) {
+            return sendMessage(
+                ctx,
+                `🔍 В ветке *${escapeMarkdown(branch)}* репозитория *${escapeMarkdown(repoKey)}* нет коммитов.`,
+                { parse_mode: 'MarkdownV2' }
+            );
+        }
+
+        let message = `📌 *Последние коммиты в ${escapeMarkdown(repoKey)} (${escapeMarkdown(branch)}):*\n\n` +
+                     `📊 Всего коммитов в ветке: *${totalCommits}*\n` +
+                     `📄 Страница: *${page}* из *${Math.ceil(totalCommits/count)}*\n\n`;
+
+        commits.forEach((commit, index) => {
+            const commitNumber = totalCommits - ((page-1)*count) - index;
+            const date = new Date(commit.commit.author.date);
+            const shortSha = commit.sha.substring(0, 7);
+            
+            message += `🔹 *Коммит #${commitNumber}*\n` +
+                      `🆔 Хеш: \`${shortSha}\`\n` +
+                      `📅 ${date.toLocaleString('ru-RU')}\n` +
+                      `👤 ${escapeMarkdown(commit.commit.author.name)}\n` +
+                      `📝 ${escapeMarkdown(truncate(commit.commit.message, 100))}\n` +
+                      `🔗 <a href="${commit.html_url}">Ссылка</a>\n\n`;
+        });
+
+        if (totalCommits > count) {
+            message += `ℹ️ Для просмотра следующей страницы: /last ${repoKey} ${branch} ${count} ${page+1}`;
+        }
+
+        await sendMessage(ctx, message, {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+        });
+
+    } catch (error) {
+        logger.error(error, 'Last command failed');
+        await sendMessage(
+            ctx,
+            `❌ Ошибка при получении коммитов: ${error.message || 'Неизвестная ошибка'}`,
+            { parse_mode: 'MarkdownV2' }
+        );
     }
-
-    // Группировка репозиториев по владельцам
-    const reposByOwner = {};
-    repos.forEach(([key, data]) => {
-      const [owner, repo] = key.split('/');
-      if (!reposByOwner[owner]) reposByOwner[owner] = [];
-      reposByOwner[owner].push({
-        repo,
-        fullName: `${owner}/${repo}`,
-        branch: data.defaultBranch || 'main',
-        lastCommitSha: data.lastCommitSha,
-        addedAt: data.addedAt
-      });
-    });
-
-    // Формируем заголовок с красивым оформлением
-    let message = `
-<b>✨ Отслеживаемые репозитории</b>
-━━━━━━━━━━━━━━━━━━
-<b>📊 Всего:</b> <u>${repos.length}</u> ${getRepoWord(repos.length)}
-━━━━━━━━━━━━━━━━━━\n\n
-`;
-
-    // Добавляем информацию по каждому репозиторию
-    Object.entries(reposByOwner).forEach(([owner, items]) => {
-      message += `<b>🌐 ${escapeHtml(owner)}</b>\n`;
-      
-      items.forEach((item, index) => {
-        const isLast = index === items.length - 1;
-        message += `
-${index === 0 ? '┏' : '┣'} <b>🔹 ${escapeHtml(item.repo)}</b>
-${isLast ? '┗' : '┃'} 🌿 Ветка: <code>${escapeHtml(item.branch)}</code>
-${isLast ? ' ' : '┃'} 🆔 Коммит: <code>${item.lastCommitSha?.slice(0, 7) || 'unknown'}</code>
-${isLast ? ' ' : '┃'} 📅 Добавлен: <i>${formatDate(item.addedAt)}</i>
-${isLast ? '' : '┃'}
-
-<code># ${escapeHtml(item.fullName)}</code>
-<code>/branch ${escapeHtml(item.fullName)} ${escapeHtml(item.branch)}</code>\n\n`;
-      });
-    });
-
-    // Добавляем подсказки по командам
-    message += `
-━━━━━━━━━━━━━━━━━━
-<b>💡 Быстрые команды:</b>
-<code>/add владелец/репозиторий</code> - добавить репозиторий
-<code>/remove владелец/репозиторий</code> - удалить репозиторий
-<code>/check все</code> - проверить обновления`;
-
-    await sendLongMessage(ctx, message, { 
-      parse_mode: 'HTML',
-      disable_web_page_preview: true
-    });
-
-    log(`Listed ${repos.length} repositories`, 'info');
-  } catch (error) {
-    logError(error, 'List command failed');
-    await sendMessage(
-      ctx,
-      '<b>❌ Ошибка при получении списка репозиториев</b>\n' +
-      `<code>${escapeHtml(error.message)}</code>`,
-      { parse_mode: 'HTML' }
-    );
-  }
 };
 
-// Функция для склонения слова "репозиторий"
-function getRepoWord(count) {
-  const cases = [2, 0, 1, 1, 1, 2];
-  const words = ['репозиторий', 'репозитория', 'репозиториев'];
-  return words[
-    count % 100 > 4 && count % 100 < 20 ? 2 : cases[Math.min(count % 10, 5)]
-  ];
-}
-
-// Функция экранирования HTML
-function escapeHtml(text) {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-// Функция форматирования даты
-function formatDate(isoString) {
-  try {
-    const date = new Date(isoString);
-    return date.toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'long',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch {
-    return 'дата неизвестна';
-  }
+function truncate(text, maxLength) {
+    return text.length > maxLength 
+        ? text.substring(0, maxLength) + '...' 
+        : text;
 }

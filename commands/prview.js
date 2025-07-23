@@ -1,15 +1,7 @@
 const axios = require('axios');
 const config = require('../config');
 const { log, logError } = require('../utils/logger');
-const { sendMessage, sendLongMessage } = require('../utils/message');
-
-function escapeHtml(text) {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
+const { sendMessage, sendLongMessage, escapeHtml } = require('../utils/message');
 
 async function getPRDetails(owner, repo, prNumber) {
   try {
@@ -29,6 +21,23 @@ async function getPRDetails(owner, repo, prNumber) {
   }
 }
 
+async function getPRChecks(owner, repo, sha) {
+  try {
+    const { data } = await axios.get(
+      `https://api.github.com/repos/${owner}/${repo}/commits/${sha}/check-runs`,
+      {
+        headers: {
+          'Authorization': `token ${config.GITHUB_TOKEN}`,
+          'User-Agent': 'GitHub-Tracker-Bot'
+        }
+      }
+    );
+    return data;
+  } catch {
+    return { total_count: 0, check_runs: [] };
+  }
+}
+
 function formatDate(dateString) {
   if (!dateString) return 'неизвестно';
   const date = new Date(dateString);
@@ -41,8 +50,7 @@ function formatDate(dateString) {
   });
 }
 
-function formatPRMessage(pr) {
-  // Основное сообщение
+function formatPRMessage(pr, checks) {
   let message = `
 <b>📌 ${escapeHtml(pr.title)} <i>(#${pr.number})</i></b>
 <a href="${pr.html_url}">🔗 Открыть PR на GitHub</a>
@@ -60,13 +68,19 @@ ${pr.state === 'open' ? '🟢 Открыт' : pr.merged ? '🟣 Слит' : '�
 • Изменений: +${pr.additions}/-${pr.deletions}
 `;
 
-  // Метки
+  if (checks.total_count > 0) {
+    message += `\n✅ <b>Проверки CI:</b> `;
+    message += checks.check_runs.map(r => {
+      const status = r.conclusion === 'success' ? '🟢' : r.conclusion === 'failure' ? '🔴' : '🟡';
+      return `${status} ${r.name}`;
+    }).join('\n• ');
+  }
+
   if (pr.labels?.length > 0) {
-    message += `\n🏷 <b>Метки:</b> `;
+    message += `\n\n🏷 <b>Метки:</b> `;
     message += pr.labels.map(l => `<code>${escapeHtml(l.name)}</code>`).join(' ');
   }
 
-  // Назначенные
   if (pr.assignees?.length > 0) {
     message += `\n👥 <b>Назначено:</b> `;
     message += pr.assignees.map(a => 
@@ -74,13 +88,11 @@ ${pr.state === 'open' ? '🟢 Открыт' : pr.merged ? '🟣 Слит' : '�
     ).join(', ');
   }
 
-  // Описание
   if (pr.body) {
     const description = escapeHtml(pr.body.substring(0, 500));
     message += `\n\n📝 <b>Описание:</b>\n<pre>${description}${pr.body.length > 500 ? '...' : ''}</pre>`;
   }
 
-  // Ссылка на файлы изменений
   message += `\n\n📂 <a href="${pr.html_url}/files">Просмотреть изменения</a>`;
 
   return message;
@@ -94,7 +106,7 @@ module.exports = async (ctx) => {
       return await sendMessage(
         ctx,
         `<b>❌ Неверный формат команды</b>\n\n` +
-        `<i>Использование:</i> <code>/prview &lt;владелец/репозиторий&gt; &lt;номер_PR&gt;</code>\n\n` +
+        `<i>Использование:</i> <code>/prview &lt;owner/repo&gt; &lt;PR_number&gt;</code>\n\n` +
         `<i>Пример:</i>\n` +
         `<code>/prview facebook/react 123</code>`,
         { parse_mode: 'HTML' }
@@ -108,7 +120,7 @@ module.exports = async (ctx) => {
       return await sendMessage(
         ctx,
         `<b>❌ Неверный формат репозитория</b>\n\n` +
-        `<i>Формат:</i> <code>&lt;владелец&gt;/&lt;репозиторий&gt;</code>\n` +
+        `<i>Формат:</i> <code>&lt;owner&gt;/&lt;repo&gt;</code>\n` +
         `<i>Пример:</i> <code>facebook/react</code>`,
         { parse_mode: 'HTML' }
       );
@@ -123,9 +135,11 @@ module.exports = async (ctx) => {
       );
     }
 
+    await ctx.replyWithChatAction('typing');
     const [owner, repo] = repoIdentifier.split('/');
     const pr = await getPRDetails(owner, repo, prNumber);
-    const message = formatPRMessage(pr);
+    const checks = await getPRChecks(owner, repo, pr.head.sha);
+    const message = formatPRMessage(pr, checks);
     
     await sendLongMessage(ctx, message, { 
       parse_mode: 'HTML',
