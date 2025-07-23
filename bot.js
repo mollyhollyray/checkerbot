@@ -4,7 +4,6 @@ const config = require('./config');
 const checker = require('./service/checker');
 const storage = require('./service/storage');
 
-// Инициализация бота
 const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
 
 const commands = {
