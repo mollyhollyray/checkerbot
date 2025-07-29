@@ -44,7 +44,6 @@ module.exports = async (ctx) => {
     try {
         await ctx.replyWithChatAction('typing');
 
-        // Парсинг аргументов
         args.slice(2).forEach(arg => {
             if (['open', 'closed', 'all'].includes(arg)) {
                 state = arg;

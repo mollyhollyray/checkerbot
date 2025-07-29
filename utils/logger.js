@@ -1,69 +1,86 @@
 const fs = require('fs');
 const path = require('path');
 const { createWriteStream } = require('fs');
-const { format } = require('util');
 const config = require('../config');
 
-// Создаём поток для записи логов
-const logStream = createWriteStream(config.LOG_FILE, {
-  flags: 'a', // 'a' означает append (добавление в конец файла)
-  encoding: 'utf8',
-});
-
-function getTimestamp() {
-  return new Date().toISOString();
+const logDir = path.dirname(config.LOG_FILE);
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
 }
 
-function logToFile(message) {
-  try {
-    logStream.write(`[${getTimestamp()}] ${message}\n`);
-  } catch (err) {
-    console.error('Failed to write to log file:', err);
+const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10 MB
+function rotateLogs() {
+  if (fs.existsSync(config.LOG_FILE) && fs.statSync(config.LOG_FILE).size > MAX_LOG_SIZE) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const newName = `${config.LOG_FILE}.${timestamp}.bak`;
+    fs.renameSync(config.LOG_FILE, newName);
   }
 }
 
-// Добавляем поддержку цветов в консоль
+rotateLogs();
+
+const logStream = createWriteStream(config.LOG_FILE, { flags: 'a', encoding: 'utf8' });
+
 const colors = {
   info: '\x1b[36m', // cyan
   warn: '\x1b[33m', // yellow
   error: '\x1b[31m', // red
   debug: '\x1b[35m', // magenta
-  reset: '\x1b[0m', // reset color
+  reset: '\x1b[0m',
 };
 
+function getTimestamp() {
+  return new Date().toISOString();
+}
+
+function logToFile(level, message, context = {}) {
+  const logEntry = JSON.stringify({
+    timestamp: getTimestamp(),
+    level,
+    message,
+    context,
+  });
+  
+  try {
+    logStream.write(logEntry + '\n');
+  } catch (err) {
+    console.error('Ошибка записи в лог:', err.message);
+  }
+}
+
 module.exports = {
-  log(message, level = 'info') {
+  log(message, level = 'info', context = {}) {
     const formatted = `[${level.toUpperCase()}] ${message}`;
     const colored = `${colors[level] || ''}${formatted}${colors.reset}`;
     
     console.log(colored);
-    logToFile(formatted);
-  },
-  
-  logError(error, context = '') {
-    const message = context ? `${context}: ${error.message}` : error.message;
-    const fullMessage = `[ERROR] ${message}\nStack Trace: ${error.stack}`;
-    
-    console.error(`${colors.error}${message}${colors.reset}`, error.stack);
-    logToFile(fullMessage);
+    logToFile(level, message, context);
   },
 
-  // Добавляем новые методы для разных уровней логирования
-  info(message) {
-    this.log(message, 'info');
+  info(message, context = {}) {
+    this.log(message, 'info', context);
   },
-  
-  warn(message) {
-    this.log(message, 'warn');
+
+  warn(message, context = {}) {
+    this.log(message, 'warn', context);
   },
-  
-  error(message) {
-    this.log(message, 'error');
+
+  error(message, error = null, context = {}) {
+    const fullContext = { ...context, stack: error?.stack };
+    this.log(message, 'error', fullContext);
+    console.error(error?.stack || '');
   },
-  
-  debug(message) {
+
+  debug(message, context = {}) {
     if (config.DEBUG) {
-      this.log(message, 'debug');
+      this.log(message, 'debug', context);
     }
-  }
+  },
+
+  child(prefix) {
+    return {
+      info: (message) => this.info(`[${prefix}] ${message}`),
+      error: (message, error) => this.error(`[${prefix}] ${message}`, error),
+    };
+  },
 };

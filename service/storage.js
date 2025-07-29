@@ -27,7 +27,7 @@ class Storage {
   
 getFirstRepo() {
     const repos = this.getRepos();
-    return repos.length > 0 ? repos[0][0] : null; // возвращает "owner/repo"
+    return repos.length > 0 ? repos[0][0] : null;
   }
 
   save() {

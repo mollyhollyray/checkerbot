@@ -2,6 +2,7 @@ const { fetchRepoData, isRepoAccessible } = require('../service/github');
 const storage = require('../service/storage');
 const { log, logError } = require('../utils/logger');
 const { sendMessage, escapeHtml } = require('../utils/message');
+const config = require('../config');
 
 module.exports = async (ctx) => {
     try {
@@ -32,7 +33,6 @@ module.exports = async (ctx) => {
 
         await ctx.replyWithChatAction('typing');
 
-        // Проверка доступности репозитория
         const isAccessible = await isRepoAccessible(owner, repo);
         if (!isAccessible) {
             return await sendMessage(

@@ -127,7 +127,6 @@ async function getTotalBranchesCount(owner, repo) {
       `https://api.github.com/repos/${owner}/${repo}/branches`,
       { per_page: 1 }
     );
-    // GitHub не возвращает общее количество, поэтому приблизительная оценка
     return data.length === 1 ? '50+' : data.length;
   } catch (error) {
     logError(`Failed to get branches count: ${owner}/${repo} - ${error.message}`);
@@ -141,7 +140,6 @@ async function getTotalCommitsCount(owner, repo, branch) {
       `https://api.github.com/repos/${owner}/${repo}/commits`,
       { sha: branch, per_page: 1 }
     );
-    // Точное количество получить сложно без дополнительных запросов
     return data.length === 1 ? '100+' : data.length;
   } catch (error) {
     logError(`Failed to get commits count: ${owner}/${repo}/${branch} - ${error.message}`);
@@ -160,7 +158,6 @@ async function fetchCommitsWithNumbers(owner, repo, branch, perPage = 5, page = 
             }
         );
         
-        // Если не можем получить общее количество, используем относительную нумерацию
         const firstNumber = (page - 1) * perPage + 1;
         
         return {

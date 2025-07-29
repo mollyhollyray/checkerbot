@@ -10,23 +10,19 @@ const MAX_BRANCHES_LIMIT = 50;
 
 module.exports = async (ctx) => {
     try {
-        // Debug logging
         console.log('Command context:', {
             text: ctx.message?.text,
             callback: ctx.callbackQuery?.data
         });
 
-        // Handle callback or command input
         let args;
         if (ctx.callbackQuery) {
-            // Extract from callback data "help_branches owner/repo"
             const callbackData = ctx.callbackQuery.data.split(' ');
             args = ['/branches', callbackData[1] || ''];
         } else {
             args = ctx.message.text.split(' ').filter(arg => arg.trim());
         }
 
-        // Get default repo if no args
         if (!args[1]?.includes('/')) {
             const defaultRepo = storage.getFirstRepo();
             if (!defaultRepo) {

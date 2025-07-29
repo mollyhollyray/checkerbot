@@ -21,7 +21,6 @@ module.exports = async (ctx) => {
     const [owner, repo] = args[0].split('/');
     const repoKey = `${owner}/${repo}`.toLowerCase();
 
-    // Подтверждение удаления
     await sendMessage(
       ctx,
       `⚠️ <b>Подтвердите удаление репозитория</b>\n\n` +

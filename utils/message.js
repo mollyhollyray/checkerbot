@@ -2,13 +2,11 @@ const { logError } = require('./logger');
 const config = require('../config');
 const { Telegraf } = require('telegraf');
 
-// Экранирование Markdown V2
 function escapeMarkdown(text) {
   if (typeof text !== 'string') return text;
   return text.replace(/[_*[\]()~`>#+-={}.!]/g, '\\$&');
 }
 
-// Экранирование HTML
 function escapeHtml(text) {
   if (!text) return '';
   return text
@@ -18,11 +16,9 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
-// Отправка сообщения с обработкой ошибок
 async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   let bot, chatId, text, finalOptions;
   
-  // Определяем контекст вызова
   if (ctxOrBot instanceof Telegraf) {
     bot = ctxOrBot;
     chatId = chatIdOrText;
@@ -71,7 +67,6 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   } catch (error) {
     logError(`Ошибка отправки сообщения: ${error.message}`);
     
-    // Попытка отправить как plain text при ошибке форматирования
     if (error.message.includes('can\'t parse entities') && parse_mode !== 'HTML') {
       return sendMessage(bot, chatId, text, {
         ...finalOptions,
@@ -91,7 +86,6 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   }
 }
 
-// Отправка длинных сообщений с разбивкой
 async function sendLongMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   const MAX_LENGTH = 4000;
   let text;

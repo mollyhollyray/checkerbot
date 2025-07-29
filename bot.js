@@ -1,13 +1,11 @@
-const { Telegraf } = require('telegraf');  // Исправленный импорт
+const { Telegraf } = require('telegraf'); 
 const cron = require('node-cron');
 const config = require('./config');
 const checker = require('./service/checker');
 const storage = require('./service/storage');
 
-// Инициализация бота
 const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
 
-// Загрузка команд
 const commands = {
   add: require('./commands/add'),
   branches: require('./commands/branches'),
@@ -21,13 +19,11 @@ const commands = {
   remove: require('./commands/remove')
 };
 
-// Регистрация команд
 Object.entries(commands).forEach(([name, handler]) => {
   bot.command(name, handler);
   console.log(`[INFO] Команда загружена: /${name}`);
 });
 
-// Обработка callback-кнопок
 bot.action(/^confirm_remove_(.+)$/, async (ctx) => {
   const repoKey = ctx.match[1];
   const [owner, repo] = repoKey.split('/');
@@ -50,14 +46,13 @@ bot.action(/^help_/, async (ctx) => {
     const commandMap = {
       list: '/list',
       check: '/check',
-      branches: '/branches combatextended-continued/combatextended', // пример
+      branches: '/branches combatextended-continued/combatextended',
       pr: '/pr',
       limits: '/limits',
       add: '/add'
     };
     
     if (commandMap[action]) {
-      // Имитируем объект сообщения
       ctx.message = {
         text: commandMap[action],
         chat: ctx.callbackQuery.message.chat
@@ -95,7 +90,6 @@ bot.action(/^help_branches/, async (ctx) => {
   }
 });
 
-// Обработка нажатия кнопок в самом help
 bot.action(/^show_help_/, async (ctx) => {
   const command = ctx.callbackQuery.data.replace('show_help_', '');
   const help = require('./commands/help');
@@ -111,7 +105,6 @@ bot.action('cancel_remove', async (ctx) => {
   await ctx.answerCbQuery('Удаление отменено');
 });
 
-// Автопроверка репозиториев
 cron.schedule(`*/${config.CHECK_INTERVAL_MINUTES} * * * *`, async () => {
   console.log('[INFO] Запуск автоматической проверки репозиториев');
   try {
@@ -121,21 +114,18 @@ cron.schedule(`*/${config.CHECK_INTERVAL_MINUTES} * * * *`, async () => {
   }
 });
 
-// Обработка ошибок
 bot.catch((error) => {
   console.error('[ERROR] Ошибка в боте:', error);
 });
 
-// Запуск бота
 bot.launch().then(() => {
   console.log('[INFO] Бот успешно запущен');
-  storage.initStorage(); // Инициализация хранилища
+  storage.initStorage();
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
-// Вспомогательная функция
 function escapeHtml(text) {
   if (!text) return '';
   return text

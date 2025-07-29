@@ -1,114 +1,90 @@
 const github = require('./github');
 const storage = require('./storage');
 const { log, logError } = require('../utils/logger');
-const config = require('../config');
 
 module.exports = {
   async checkAllRepos(bot) {
-    const repos = storage.getRepos();
-    if (repos.length === 0) {
-      log('Нет репозиториев для проверки');
+    try {
+      const repos = storage.getRepos();
+      if (!repos || repos.length === 0) {
+        log('Нет репозиториев для проверки');
+        return [];
+      }
+
+      log(`Начинаем проверку ${repos.length} репозиториев`);
+      const updates = [];
+
+      for (const [repoKey, repoData] of repos) {
+        try {
+          const [owner, repo] = repoKey.split('/');
+          const branch = repoData.branch || repoData.defaultBranch || 'main';
+
+          log(`Проверяем ${repoKey} (${branch})`);
+          const latestCommit = await github.getBranchLastCommit(owner, repo, branch);
+
+          if (!latestCommit || !latestCommit.sha) {
+            logError(`Не удалось получить коммит для ${repoKey}`);
+            continue;
+          }
+
+          if (!repoData.lastCommitSha) {
+            await storage.updateRepoCommit(owner, repo, latestCommit);
+            log(`Инициализирован новый репозиторий: ${repoKey}`);
+            continue;
+          }
+
+          if (latestCommit.sha !== repoData.lastCommitSha) {
+            log(`Обнаружено обновление в ${repoKey}`);
+            updates.push({
+              repoKey,
+              branch,
+              newSha: latestCommit.sha,
+              oldSha: repoData.lastCommitSha,
+              message: latestCommit.commit.message.split('\n')[0],
+              url: latestCommit.html_url
+            });
+
+            await storage.updateRepoCommit(owner, repo, latestCommit);
+            await this.sendUpdateNotification(bot, updates[updates.length - 1]);
+          }
+        } catch (error) {
+          logError(`Ошибка при проверке ${repoKey}: ${error.message}`);
+        }
+      }
+
+      log(`Проверка завершена. Обновлений: ${updates.length}`);
+      return updates;
+    } catch (error) {
+      logError(`Критическая ошибка в checkAllRepos: ${error.message}`);
       return [];
     }
-
-    log(`🔍 Запуск проверки ${repos.length} репозиториев...`);
-    const updates = [];
-    let checkedCount = 0;
-
-    for (const [fullName, repoData] of repos) {
-      const [owner, repo] = fullName.split('/');
-      const branch = repoData.branch || repoData.defaultBranch || 'main';
-
-      try {
-        log(`Проверка ${fullName} (${branch})...`);
-        const startTime = Date.now();
-        
-        const latestCommit = await github.getBranchLastCommit(owner, repo, branch);
-        const duration = Date.now() - startTime;
-
-        if (!latestCommit) {
-          logError(`Ветка ${branch} не найдена в ${fullName}`);
-          continue;
-        }
-
-        const wasUpdated = await storage.updateRepoCommit(owner, repo, latestCommit);
-        
-        if (!repoData.lastCommitSha) {
-          log(`✅ Инициализация: ${fullName} @ ${latestCommit.sha.slice(0, 7)} [${duration}ms]`);
-        } 
-        else if (latestCommit.sha !== repoData.lastCommitSha) {
-          if (wasUpdated) {
-            updates.push({
-              repo: fullName,
-              branch,
-              commit: latestCommit,
-              previous: repoData.lastCommitSha
-            });
-            log(`🆕 Обновление: ${fullName} ${repoData.lastCommitSha.slice(0, 7)}→${latestCommit.sha.slice(0, 7)} [${duration}ms]`);
-          }
-        } else {
-          log(`✓ Актуально: ${fullName} [${duration}ms]`);
-        }
-
-        checkedCount++;
-      } catch (error) {
-        logError(`❌ Ошибка проверки ${fullName}: ${error.message}`);
-      }
-    }
-
-    log(`Проверка завершена. Обновлений: ${updates.length}/${checkedCount}`);
-    if (updates.length > 0) {
-      await this.notifyUpdates(bot, updates);
-    }
-    return updates;
   },
 
-  async notifyUpdates(bot, updates) {
-    for (const update of updates) {
-      try {
-        const message = this.formatCommitMessage(update);
-        await bot.telegram.sendMessage(
-          config.ADMIN_USER_ID,
-          message,
-          { 
-            parse_mode: 'HTML',
-            disable_web_page_preview: true 
-          }
-        );
-        log(`Уведомление отправлено: ${update.repo}`);
-      } catch (error) {
-        logError(`Ошибка отправки уведомления: ${error.message}`);
-      }
+  async sendUpdateNotification(bot, update) {
+    try {
+      const message = this.formatUpdateMessage(update);
+      await bot.telegram.sendMessage(
+        process.env.ADMIN_USER_ID,
+        message,
+        { disable_web_page_preview: true }
+      );
+    } catch (error) {
+      logError(`Ошибка отправки уведомления: ${error.message}`);
     }
   },
 
-  formatCommitMessage(update) {
-    const commit = update.commit;
-    const commitDate = new Date(commit.commit.committer.date);
-    const firstLine = commit.commit.message.split('\n')[0];
-    const otherLines = commit.commit.message.split('\n').slice(1).join('\n').trim();
-
+  formatUpdateMessage(update) {
     return `
-<b>🆕 Новый коммит в ${update.repo}</b> (<code>${update.branch}</code>)
+🔄 Обновление в ${update.repoKey} (${update.branch})
 ━━━━━━━━━━━━━━━━━━
-<code>${commit.sha.slice(0, 7)}</code> <b>${escapeHtml(firstLine)}</b>
+Было: ${update.oldSha.slice(0, 7)}
+Стало: ${update.newSha.slice(0, 7)}
 
-${otherLines ? `<pre>${escapeHtml(otherLines)}</pre>` : ''}
+📝 ${update.message.substring(0, 100)}
+🔗 ${update.url}
 
-👤 <b>Автор:</b> ${commit.commit.author.name}
-⏱ <b>Дата:</b> ${commitDate.toLocaleString('ru-RU')}
-🔗 <a href="${commit.html_url}">Просмотреть коммит</a>
+/last ${update.repoKey} ${update.branch} 5
 ━━━━━━━━━━━━━━━━━━
-<code>/last ${update.repo} ${update.branch} 3</code> - последние 3 коммита
     `;
   }
 };
-
-function escapeHtml(text) {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}

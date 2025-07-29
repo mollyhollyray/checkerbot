@@ -1,13 +1,1 @@
-[
-  [
-    "combatextended-continued/combatextended",
-    {
-      "defaultBranch": "Development",
-      "branch": "Development",
-      "addedAt": "2025-07-22T00:51:12.297Z",
-      "lastCommitSha": "3417c09df2ecb0e85f697f0d0be1dc7db8d280e9",
-      "lastCommitTime": 1753247124000,
-      "lastCommitMessage": "Merge pull request #4085 from CombatExtended-Continued/Fix-VWE-Patches\n\nFix VWE patches"
-    }
-  ]
-]
+[]

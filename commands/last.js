@@ -26,7 +26,6 @@ module.exports = async (ctx) => {
 
         await ctx.replyWithChatAction('typing');
 
-        // Обработка аргументов
         if (args.length >= 3) {
             if (!isNaN(parseInt(args[2]))) {
                 count = Math.min(parseInt(args[2]), 20);
@@ -39,7 +38,6 @@ module.exports = async (ctx) => {
             branch = await getDefaultBranch(owner, repo) || 'main';
         }
 
-        // Проверка ветки
         if (!await checkBranchExists(owner, repo, branch)) {
             return sendMessage(ctx,
                 `❌ Ветка <b>${escapeHtml(branch)}</b> не найдена`,
@@ -47,7 +45,6 @@ module.exports = async (ctx) => {
             );
         }
 
-        // Получаем коммиты
         const { commits, firstNumber, hasMore } = await fetchCommitsWithNumbers(owner, repo, branch, count, page);
         
         if (!commits.length) {
@@ -57,12 +54,11 @@ module.exports = async (ctx) => {
             );
         }
 
-        // Формируем сообщение
         let message = `📌 <b>Коммиты в ${escapeHtml(repoKey)} (${escapeHtml(branch)})</b>\n\n`;
 
         commits.forEach((commit, index) => {
             const date = new Date(commit.commit.author.date);
-            date.setHours(date.getHours() + 3); // UTC+3 для Москвы
+            date.setHours(date.getHours() + 3);
             
             message += 
 `🔹 <b>#${firstNumber + index}</b> <code>${commit.sha.substring(0, 7)}</code>
@@ -72,7 +68,6 @@ module.exports = async (ctx) => {
 └ 🔗 <a href="${commit.html_url}">Подробнее</a>\n\n`;
         });
 
-        // Информация о пагинации
         message += `📊 Показано коммитов: ${commits.length}\n`;
         if (hasMore) {
             message += `🔍 Для следующих: <code>/last ${escapeHtml(repoKey)} ${escapeHtml(branch)} ${count} ${page+1}</code>`;
