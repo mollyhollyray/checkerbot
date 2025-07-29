@@ -1,4 +1,4 @@
-const { Telegraf } = require('telegraf');  // Исправленный импорт
+const { Telegraf } = require('telegraf');
 const cron = require('node-cron');
 const config = require('./config');
 const checker = require('./service/checker');
