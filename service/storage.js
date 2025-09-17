@@ -24,6 +24,19 @@ class Storage {
       log(`Ошибка инициализации хранилища: ${error.message}`);
     }
   }
+
+  getRepoReleaseInfo(owner, repo) {
+    const key = `${owner}/${repo}`.toLowerCase();
+    if (!this.repos.has(key)) return null;
+    
+    const repoData = this.repos.get(key);
+    return {
+        lastReleaseTag: repoData.lastReleaseTag,
+        lastReleaseTime: repoData.lastReleaseTime,
+        lastReleaseName: repoData.lastReleaseName,
+        lastReleaseUrl: repoData.lastReleaseUrl
+    };
+}
   
 getFirstRepo() {
     const repos = this.getRepos();
@@ -48,18 +61,20 @@ getFirstRepo() {
     return [...this.repos];
   }
 
-  addRepo(owner, repo, data) {
+ addRepo(owner, repo, data) {
     const key = `${owner}/${repo}`.toLowerCase();
     this.repos.set(key, {
-      defaultBranch: data.defaultBranch || 'main',
-      branch: data.branch || data.defaultBranch || 'main',
-      addedAt: new Date().toISOString(),
-      lastCommitSha: data.lastCommitSha,
-      lastCommitTime: data.lastCommitTime,
-      ...data
+        defaultBranch: data.defaultBranch || 'main',
+        branch: data.branch || data.defaultBranch || 'main',
+        addedAt: new Date().toISOString(),
+        lastCommitSha: data.lastCommitSha,
+        lastCommitTime: data.lastCommitTime,
+        lastReleaseTag: data.lastReleaseTag || null,
+        lastReleaseTime: data.lastReleaseTime || 0,
+        ...data
     });
     return this.save();
-  }
+}
 
   removeRepo(owner, repo) {
     const key = `${owner}/${repo}`.toLowerCase();
@@ -67,6 +82,27 @@ getFirstRepo() {
     if (result) this.save();
     return result;
   }
+
+  updateRepoRelease(owner, repo, releaseData) {
+    const key = `${owner}/${repo}`.toLowerCase();
+    if (!this.repos.has(key)) return false;
+
+    const repoData = this.repos.get(key);
+    const newData = {
+        ...repoData,
+        lastReleaseTag: releaseData.tag_name,
+        lastReleaseTime: new Date(releaseData.published_at || releaseData.created_at).getTime(),
+        lastReleaseName: releaseData.name,
+        lastReleaseUrl: releaseData.html_url
+    };
+
+    if (repoData.lastReleaseTag !== newData.lastReleaseTag) {
+        this.repos.set(key, newData);
+        return this.save();
+    }
+    return false;
+}
+
 
   updateRepoCommit(owner, repo, commitData) {
     const key = `${owner}/${repo}`.toLowerCase();

@@ -25,6 +25,7 @@ const commands = {
   pm2: require('./commands/pm2'),
   reload: require('./commands/reload'),
   logs: require('./commands/logs'),
+   releases: require('./commands/releases'),
 };
 
 Object.entries(commands).forEach(([name, handler]) => {
@@ -121,6 +122,27 @@ bot.action(/^help_/, async (ctx) => {
   } catch (error) {
     console.error('Help callback error:', error);
     await ctx.answerCbQuery('❌ Ошибка выполнения команды');
+  }
+});
+
+bot.action(/^quick_releases_(.+)_(.+)_(\d+)$/, async (ctx) => {
+  try {
+    const [_, owner, repo, limit] = ctx.match;
+    const fakeContext = {
+      ...ctx,
+      message: {
+        text: `/releases ${owner}/${repo} ${limit}`,
+        chat: ctx.callbackQuery.message.chat,
+        from: ctx.callbackQuery.from
+      },
+      bot: ctx.bot
+    };
+    const releasesCmd = require('./commands/releases');
+    await releasesCmd(fakeContext);
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('Quick releases callback error:', error);
+    await ctx.answerCbQuery('❌ Ошибка загрузки релизов');
   }
 });
 

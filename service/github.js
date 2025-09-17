@@ -43,6 +43,49 @@ async function makeRequest(url, params = {}) {
   }
 }
 
+async function fetchLatestRelease(owner, repo) {
+    try {
+        const data = await makeRequest(
+            `https://api.github.com/repos/${owner}/${repo}/releases/latest`
+        );
+        return data;
+    } catch (error) {
+        // Если нет релизов, пробуем получить теги
+        if (error.response?.status === 404) {
+            try {
+                const tags = await makeRequest(
+                    `https://api.github.com/repos/${owner}/${repo}/tags`
+                );
+                if (tags.length > 0) {
+                    return {
+                        tag_name: tags[0].name,
+                        name: tags[0].name,
+                        html_url: `https://github.com/${owner}/${repo}/releases/tag/${tags[0].name}`,
+                        created_at: new Date().toISOString(),
+                        prerelease: false,
+                        draft: false
+                    };
+                }
+            } catch (tagError) {
+                // Игнорируем ошибки тегов
+            }
+        }
+        return null;
+    }
+}
+
+async function fetchAllReleases(owner, repo, limit = 10) {
+    try {
+        const data = await makeRequest(
+            `https://api.github.com/repos/${owner}/${repo}/releases`,
+            { per_page: limit }
+        );
+        return data;
+    } catch (error) {
+        return [];
+    }
+}
+
 async function isRepoAccessible(owner, repo) {
   try {
     await makeRequest(`https://api.github.com/repos/${owner}/${repo}`);
@@ -200,5 +243,7 @@ module.exports = {
   getDefaultBranch,
   getTotalBranchesCount,
   getTotalCommitsCount,
-  apiRateLimit
+  apiRateLimit,
+  fetchLatestRelease,
+  fetchAllReleases
 };

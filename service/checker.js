@@ -26,6 +26,7 @@ module.exports = {
       });
 
       const updates = [];
+      const releaseUpdates = [];
 
       for (const [repoKey, repoData] of repos) {
         processedRepos++;
@@ -37,9 +38,11 @@ module.exports = {
             context: 'repoCheck',
             repoKey,
             branch,
-            lastCommitSha: repoData.lastCommitSha?.slice(0, 7) || 'none'
+            lastCommitSha: repoData.lastCommitSha?.slice(0, 7) || 'none',
+            lastReleaseTag: repoData.lastReleaseTag || 'none'
           });
 
+          // Проверяем коммиты
           const latestCommit = await github.getBranchLastCommit(owner, repo, branch);
 
           if (!latestCommit || !latestCommit.sha) {
@@ -88,6 +91,34 @@ module.exports = {
             await this.sendUpdateNotification(bot, updates[updates.length - 1]);
           }
 
+          // Проверяем релизы
+          const latestRelease = await github.fetchLatestRelease(owner, repo);
+          if (latestRelease) {
+            const currentReleaseTag = repoData.lastReleaseTag;
+            const currentReleaseTime = repoData.lastReleaseTime || 0;
+            const newReleaseTime = new Date(latestRelease.published_at || latestRelease.created_at).getTime();
+            
+            if (!currentReleaseTag || currentReleaseTag !== latestRelease.tag_name) {
+              log(`Обнаружен новый релиз в ${repoKey}`, 'info', {
+                context: 'repoRelease',
+                repoKey,
+                oldReleaseTag: currentReleaseTag || 'none',
+                newReleaseTag: latestRelease.tag_name,
+                releaseName: latestRelease.name
+              });
+
+              releaseUpdates.push({
+                repoKey,
+                release: latestRelease,
+                isNew: !currentReleaseTag,
+                isUpdate: !!currentReleaseTag
+              });
+              
+              await storage.updateRepoRelease(owner, repo, latestRelease);
+              await this.sendReleaseNotification(bot, releaseUpdates[releaseUpdates.length - 1]);
+            }
+          }
+
           successfulChecks++;
 
         } catch (error) {
@@ -97,6 +128,7 @@ module.exports = {
             repoKey,
             branch: repoData.branch,
             lastCommitSha: repoData.lastCommitSha?.slice(0, 7),
+            lastReleaseTag: repoData.lastReleaseTag,
             errorType: error.response?.status ? 'API_ERROR' : 'NETWORK_ERROR',
             statusCode: error.response?.status,
             responseData: error.response?.data ? JSON.stringify(error.response.data).substring(0, 200) : null
@@ -113,13 +145,14 @@ module.exports = {
         successfulChecks,
         failedChecks,
         updatesFound: updates.length,
+        releasesFound: releaseUpdates.length,
         performance: {
           msPerRepo: duration / repos.length,
           reposPerSecond: (repos.length / (duration / 1000)).toFixed(2)
         }
       });
 
-      return updates;
+      return [...updates, ...releaseUpdates];
     } catch (error) {
       const duration = Date.now() - startTime;
       logError('Критическая ошибка в checkAllRepos', error, {
@@ -150,19 +183,51 @@ module.exports = {
         }
       );
 
-      log('Уведомление отправлено успешно', 'info', {
+      log('Уведомление об обновлении отправлено', 'info', {
         context: 'sendUpdateNotification',
         repoKey: update.repoKey,
         branch: update.branch,
         newSha: update.newSha.slice(0, 7),
-        buttonsCount: keyboard.inline_keyboard.flat().length,
+        hasPRButton: keyboard.inline_keyboard.length > 0,
         messageId: sentMessage.message_id
       });
 
     } catch (error) {
-      logError('Ошибка отправки уведомления', error, {
+      logError('Ошибка отправки уведомления об обновлении', error, {
         context: 'sendUpdateNotification',
         repoKey: update.repoKey,
+        chatId: process.env.ADMIN_USER_ID,
+        errorMessage: error.message,
+        stack: error.stack
+      });
+    }
+  },
+
+  async sendReleaseNotification(bot, releaseUpdate) {
+    try {
+      const message = this.formatReleaseMessage(releaseUpdate);
+      
+      const sentMessage = await bot.telegram.sendMessage(
+        process.env.ADMIN_USER_ID,
+        message,
+        { 
+          parse_mode: 'HTML',
+          disable_web_page_preview: false
+        }
+      );
+
+      log('Уведомление о релизе отправлено', 'info', {
+        context: 'sendReleaseNotification',
+        repoKey: releaseUpdate.repoKey,
+        releaseTag: releaseUpdate.release.tag_name,
+        isNew: releaseUpdate.isNew,
+        messageId: sentMessage.message_id
+      });
+
+    } catch (error) {
+      logError('Ошибка отправки уведомления о релизе', error, {
+        context: 'sendReleaseNotification',
+        repoKey: releaseUpdate.repoKey,
         chatId: process.env.ADMIN_USER_ID,
         errorMessage: error.message,
         stack: error.stack
@@ -186,19 +251,23 @@ module.exports = {
 
       // Основные команды
       buttons.push(
-  [{
-    text: "🌿 3 последних коммита",
-    callback_data: `quick_last_${owner}_${repo}_3`
-  }],
-  [{
-    text: "📊 10 активных веток",
-    callback_data: `quick_branches_${owner}_${repo}_10`
-  }],
-  [{
-    text: "🔄 10 последних PR",
-    callback_data: `quick_pr_${owner}_${repo}_10_open`
-  }]
-);
+        [{
+          text: "🌿 3 последних коммита",
+          callback_data: `quick_last_${owner}_${repo}_3`
+        }],
+        [{
+          text: "📊 10 активных веток",
+          callback_data: `quick_branches_${owner}_${repo}_10`
+        }],
+        [{
+          text: "🔄 10 последних PR",
+          callback_data: `quick_pr_${owner}_${repo}_10_open`
+        }],
+        [{
+          text: "📦 Посмотреть релизы",
+          callback_data: `quick_releases_${owner}_${repo}_10`
+        }]
+      );
 
       // Кнопка удаления с подтверждением
       buttons.push([{
@@ -206,7 +275,7 @@ module.exports = {
         callback_data: `confirm_remove_${update.repoKey}`
       }]);
 
-      log('Создана комплексная клавиатура уведомления', 'debug', {
+      log('Создана клавиатура уведомления', 'debug', {
         context: 'createNotificationKeyboard',
         repoKey: update.repoKey,
         hasPRButton: !!prMatch,
@@ -243,5 +312,38 @@ module.exports = {
 <i>Используйте кнопки ниже для быстрых действий:</i>
 ━━━━━━━━━━━━━━━━━━
     `;
+  },
+
+  formatReleaseMessage(releaseUpdate) {
+    const { repoKey, release, isNew } = releaseUpdate;
+    const emoji = isNew ? '🎉' : '🔄';
+    const title = isNew ? 'Новый релиз!' : 'Обновление релиза';
+    
+    const releaseDate = new Date(release.published_at || release.created_at);
+    const formattedDate = releaseDate.toLocaleString('ru-RU');
+    
+    let message = `
+${emoji} <b>${title} в ${repoKey}</b>
+
+📦 <b>Релиз:</b> ${release.name || release.tag_name}
+🏷️ <b>Тег:</b> <code>${release.tag_name}</code>
+📅 <b>Дата:</b> ${formattedDate}
+`;
+
+    if (release.body) {
+      const cleanBody = release.body
+        .replace(/```/g, '')
+        .replace(/#{1,6}\s?/g, '')
+        .substring(0, 200);
+      message += `📝 <b>Описание:</b> ${cleanBody}...\n`;
+    }
+
+    message += `
+🔗 <a href="${release.html_url}">Смотреть релиз на GitHub</a>
+
+💡 <i>Для просмотра всех релизов: /releases ${repoKey}</i>
+    `.trim();
+
+    return message;
   }
 };
