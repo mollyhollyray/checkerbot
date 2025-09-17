@@ -2,6 +2,7 @@ const { fetchRepoBranches, getBranchLastCommit, getDefaultBranch, getTotalBranch
 const { sendMessage, sendLongMessage, escapeHtml } = require('../utils/message');
 const logger = require('../utils/logger');
 const storage = require('../service/storage');
+const config = require('../config');
 const NodeCache = require('node-cache');
 
 const branchesCache = new NodeCache({ stdTTL: 300 });
@@ -31,6 +32,14 @@ module.exports = async (ctx) => {
             text: ctx.message?.text,
             callback: ctx.callbackQuery?.data
         });
+
+        if (ctx.from.id !== config.ADMIN_USER_ID) {
+                    return await sendMessage(
+                        ctx,
+                        '❌ Эта команда доступна только администратору',
+                        { parse_mode: 'HTML' }
+                    );
+                }
 
         let args;
         if (ctx.callbackQuery) {

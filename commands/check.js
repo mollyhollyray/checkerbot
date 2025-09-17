@@ -1,11 +1,20 @@
 const checker = require('../service/checker');
 const { sendMessage, sendLongMessage } = require('../utils/message');
 const logger = require('../utils/logger');
+const config = require('../config');
 const storage = require('../service/storage');
 
 module.exports = async (ctx) => {
     try {
         const args = ctx.message.text.split(' ').slice(1);
+
+        if (ctx.from.id !== config.ADMIN_USER_ID) {
+                    return await sendMessage(
+                        ctx,
+                        '❌ Эта команда доступна только администратору',
+                        { parse_mode: 'HTML' }
+                    );
+                }
         
         // Валидация дополнительных аргументов
         if (args.length > 0 && args[0] !== 'все' && args[0] !== 'all') {

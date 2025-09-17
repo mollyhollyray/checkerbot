@@ -1,6 +1,7 @@
 const { apiRateLimit } = require('../service/github');
 const { sendMessage } = require('../utils/message');
 const { log, logError } = require('../utils/logger');
+const config = require('../config');
 
 function progressBar(used, total) {
     const percent = Math.round((used / total) * 10);
@@ -9,6 +10,13 @@ function progressBar(used, total) {
 
 module.exports = async (ctx) => {
     try {
+                if (ctx.from.id !== config.ADMIN_USER_ID) {
+                            return await sendMessage(
+                                ctx,
+                                '❌ Эта команда доступна только администратору',
+                                { parse_mode: 'HTML' }
+                            );
+                        }
         if (!apiRateLimit || typeof apiRateLimit.remaining === 'undefined') {
             throw new Error('Данные о лимитах недоступны');
         }

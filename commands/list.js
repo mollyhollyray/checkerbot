@@ -1,9 +1,17 @@
 const storage = require('../service/storage');
 const { sendMessage, sendLongMessage } = require('../utils/message');
 const logger = require('../utils/logger');
+const config = require('../config');
 
 module.exports = async (ctx) => {
     try {
+        if (ctx.from.id !== config.ADMIN_USER_ID) {
+                                    return await sendMessage(
+                                        ctx,
+                                        '❌ Эта команда доступна только администратору',
+                                        { parse_mode: 'HTML' }
+                                    );
+                                }
         await ctx.replyWithChatAction('typing');
         const repos = storage.getRepos();
         

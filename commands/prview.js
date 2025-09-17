@@ -27,6 +27,13 @@ function sanitizeRepoIdentifier(repoIdentifier) {
 
 module.exports = async (ctx) => {
     try {
+      if (ctx.from.id !== config.ADMIN_USER_ID) {
+                                  return await sendMessage(
+                                      ctx,
+                                      '❌ Эта команда доступна только администратору',
+                                      { parse_mode: 'HTML' }
+                                  );
+                              }
         const args = ctx.message.text.split(' ').slice(1);
         
         if (args.length < 2) {

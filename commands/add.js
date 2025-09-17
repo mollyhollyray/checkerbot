@@ -1,4 +1,5 @@
 const { fetchRepoData, isRepoAccessible } = require('../service/github');
+const config = require('../config');
 const storage = require('../service/storage');
 const { log, logError } = require('../utils/logger');
 const { sendMessage, escapeHtml } = require('../utils/message');
@@ -20,6 +21,14 @@ module.exports = async (ctx) => {
     try {
         const args = ctx.message.text.split(' ').slice(1);
         const repoInput = args[0];
+
+        if (ctx.from.id !== config.ADMIN_USER_ID) {
+                    return await sendMessage(
+                        ctx,
+                        '❌ Эта команда доступна только администратору',
+                        { parse_mode: 'HTML' }
+                    );
+                }
 
         if (!repoInput || !isValidRepoFormat(repoInput)) {
             return await sendMessage(

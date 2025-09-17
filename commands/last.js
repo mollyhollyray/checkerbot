@@ -2,6 +2,7 @@ const { getDefaultBranch, fetchCommitsWithNumbers, checkBranchExists } = require
 const { sendMessage, escapeHtml } = require('../utils/message');
 const logger = require('../utils/logger');
 const storage = require('../service/storage');
+const config = require('../config');
 
 function isValidRepoFormat(repoInput) {
     return repoInput && 
@@ -37,6 +38,14 @@ module.exports = async (ctx) => {
                 parse_mode: 'HTML' 
             });
         }
+
+                if (ctx.from.id !== config.ADMIN_USER_ID) {
+                            return await sendMessage(
+                                ctx,
+                                '❌ Эта команда доступна только администратору',
+                                { parse_mode: 'HTML' }
+                            );
+                        }
 
         const args = inputText.split(' ').filter(arg => arg.trim());
         if (args.length < 2 || !isValidRepoFormat(args[1])) {

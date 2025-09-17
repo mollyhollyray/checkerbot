@@ -1,5 +1,5 @@
 const { exec } = require('child_process');
-const { sendMessage } = require('../utils/message');
+const { sendMessage, sendLongMessage } = require('../utils/message');
 const config = require('../config');
 const { promisify } = require('util');
 
@@ -29,7 +29,7 @@ module.exports = async (ctx) => {
                 '<code>/pm2 stop</code> - Остановить бота\n' +
                 '<code>/pm2 start</code> - Запустить бота\n' +
                 '<code>/pm2 status</code> - Статус процессов\n' +
-                '<code>/pm2 logs</code> - Последние логи\n' +
+                '<code>/pm2 logs</code> - Последние логи (10 строк)\n' +
                 '<code>/pm2 update</code> - Обновить и перезапустить',
                 { parse_mode: 'HTML' }
             );
@@ -40,25 +40,26 @@ module.exports = async (ctx) => {
         let result;
         switch (command) {
             case 'restart':
-                result = await execAsync('pm2 restart bot');
+                result = await execAsync('pm2 restart bot --silent');
                 break;
             case 'reload':
-                result = await execAsync('pm2 reload bot');
+                result = await execAsync('pm2 reload bot --silent');
                 break;
             case 'stop':
-                result = await execAsync('pm2 stop bot');
+                result = await execAsync('pm2 stop bot --silent');
                 break;
             case 'start':
-                result = await execAsync('pm2 start bot');
+                result = await execAsync('pm2 start bot --silent');
                 break;
             case 'status':
-                result = await execAsync('pm2 status');
+                result = await execAsync('pm2 status --silent', { timeout: 10000 });
                 break;
             case 'logs':
-                result = await execAsync('pm2 logs bot --lines 20');
+                // Быстрые логи - только последние 10 строк
+                result = await execAsync('pm2 logs bot --lines 10 --silent', { timeout: 15000 });
                 break;
             case 'update':
-                result = await execAsync('git pull && pm2 restart bot');
+                result = await execAsync('git pull && pm2 restart bot --silent', { timeout: 30000 });
                 break;
             default:
                 return await sendMessage(
@@ -70,22 +71,44 @@ module.exports = async (ctx) => {
 
         // Обрезаем длинный вывод
         const output = result.stdout || result.stderr;
-        const truncatedOutput = output.length > 2000 
-            ? output.substring(0, 2000) + '...' 
+        
+        if (!output || output.trim() === '') {
+            return await sendMessage(
+                ctx,
+                `<b>✅ Команда выполнена: ${command}</b>\n\n` +
+                `Нет вывода или пустой результат`,
+                { parse_mode: 'HTML' }
+            );
+        }
+
+        const truncatedOutput = output.length > 3500 
+            ? output.substring(0, 3500) + '...\n\n⚠️ Вывод обрезан' 
             : output;
 
-        await sendMessage(
+        await sendLongMessage(
             ctx,
             `<b>✅ Команда выполнена: ${command}</b>\n\n` +
             `<pre>${truncatedOutput}</pre>`,
-            { parse_mode: 'HTML' }
+            { 
+                parse_mode: 'HTML',
+                disable_web_page_preview: true
+            }
         );
 
     } catch (error) {
+        let errorMessage = `❌ Ошибка выполнения команды PM2\n\n`;
+        
+        if (error.killed) {
+            errorMessage += `<code>Таймаут: команда выполнялась слишком долго</code>`;
+        } else if (error.code === 'ENOENT') {
+            errorMessage += `<code>PM2 не установлен или недоступен</code>`;
+        } else {
+            errorMessage += `<code>${error.message}</code>`;
+        }
+
         await sendMessage(
             ctx,
-            `❌ Ошибка выполнения команды PM2\n\n` +
-            `<code>${error.message}</code>`,
+            errorMessage,
             { parse_mode: 'HTML' }
         );
     }

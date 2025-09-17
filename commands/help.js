@@ -1,5 +1,6 @@
 const { sendMessage } = require('../utils/message');
 const { log, logError } = require('../utils/logger');
+const config = require('../config');
 
 const COMMAND_HELP = {
   main: `🌸 *GitHub Tracker Bot* 🌸 *Help Center*
@@ -227,6 +228,13 @@ const COMMAND_HELP = {
 
 module.exports = async (ctx) => {
   const [_, command] = ctx.message.text.split(' ')
+  if (ctx.from.id !== config.ADMIN_USER_ID) {
+              return await sendMessage(
+                  ctx,
+                  '❌ Эта команда доступна только администратору',
+                  { parse_mode: 'HTML' }
+              );
+          }
   
   try {
     const helpText = command 

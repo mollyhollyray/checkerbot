@@ -2,6 +2,7 @@ const { log, logError } = require('../utils/logger');
 const { sendMessage } = require('../utils/message');
 const storage = require('../service/storage');
 const { escapeHtml } = require('../utils/message');
+const config = require('../config');
 
 function isValidRepoFormat(repoInput) {
     return repoInput && 
@@ -17,6 +18,13 @@ function sanitizeRepoInput(repoInput) {
 
 module.exports = async (ctx) => {
   try {
+    if (ctx.from.id !== config.ADMIN_USER_ID) {
+                                return await sendMessage(
+                                    ctx,
+                                    '❌ Эта команда доступна только администратору',
+                                    { parse_mode: 'HTML' }
+                                );
+                            }
     const args = ctx.message.text.split(' ').slice(1);
     
     if (args.length < 1 || !isValidRepoFormat(args[0])) {
