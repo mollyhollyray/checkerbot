@@ -12,9 +12,7 @@ const prCache = new NodeCache({ stdTTL: PR_CACHE_TTL });
 function isValidRepoFormat(repoInput) {
     return repoInput && 
            repoInput.includes('/') && 
-           repoInput.split('/').length === 2 &&
-           repoInput.split('/')[0].length > 0 &&
-           repoInput.split('/')[1].length > 0;
+           repoInput.split('/').length === 2;
 }
 
 function sanitizeRepoInput(repoInput) {
@@ -36,36 +34,48 @@ function sanitizeFilterValue(value) {
 }
 
 module.exports = async (ctx) => {
-    const args = ctx.message.text.split(' ').filter(arg => arg.trim());
-    
-    if (args.length < 2 || !isValidRepoFormat(args[1])) {
-        return sendMessage(
-            ctx,
-            '❌ *Формат команды*\n\n' +
-            '▸ Используйте: `/pr owner/repo [state=open] [limit=5] [label:tag] [author:name]`\n' +
-            '▸ *Состояния:* `open` (по умолчанию), `closed`, `all`\n' +
-            '▸ *Лимит:* максимум 15 PR\n' +
-            '▸ *Примеры:*\n' +
-            '   `/pr facebook/react`\n' +
-            '   `/pr vuejs/core closed 10`\n' +
-            '   `/pr axios/axios all 5 label:bug author:john`',
-            { parse_mode: 'MarkdownV2' }
-        );
-    }
-
-    const sanitizedInput = sanitizeRepoInput(args[1]);
-    const [owner, repo] = sanitizedInput.split('/');
-    const repoKey = `${owner}/${repo}`.toLowerCase();
-
-    if (owner.length > 50 || repo.length > 100) {
-        return sendMessage(
-            ctx,
-            '❌ Слишком длинное имя владельца или репозитория',
-            { parse_mode: 'MarkdownV2' }
-        );
-    }
-
     try {
+        // Получаем текст команды из message или callback
+        let args;
+        if (ctx.message && ctx.message.text) {
+            args = ctx.message.text.split(' ').filter(arg => arg.trim());
+        } else if (ctx.callbackQuery && ctx.callbackQuery.data) {
+            args = ctx.callbackQuery.data.split(' ').filter(arg => arg.trim());
+        } else {
+            return sendMessage(
+                ctx,
+                '❌ *Неверный формат команды*',
+                { parse_mode: 'MarkdownV2' }
+            );
+        }
+        
+        if (args.length < 2 || !isValidRepoFormat(args[1])) {
+            return sendMessage(
+                ctx,
+                '❌ *Формат команды*\n\n' +
+                '▸ Используйте: `/pr owner/repo [state=open] [limit=5] [label:tag] [author:name]`\n' +
+                '▸ *Состояния:* `open` (по умолчанию), `closed`, `all`\n' +
+                '▸ *Лимит:* максимум 15 PR\n' +
+                '▸ *Примеры:*\n' +
+                '   `/pr facebook/react`\n' +
+                '   `/pr vuejs/core closed 10`\n' +
+                '   `/pr axios/axios all 5 label:bug author:john`',
+                { parse_mode: 'MarkdownV2' }
+            );
+        }
+
+        const sanitizedInput = sanitizeRepoInput(args[1]);
+        const [owner, repo] = sanitizedInput.split('/');
+        const repoKey = `${owner}/${repo}`.toLowerCase();
+
+        if (owner.length > 50 || repo.length > 100) {
+            return sendMessage(
+                ctx,
+                '❌ Слишком длинное имя владельца или репозитория',
+                { parse_mode: 'MarkdownV2' }
+            );
+        }
+
         await ctx.replyWithChatAction('typing');
 
         let state = 'open';
@@ -84,7 +94,7 @@ module.exports = async (ctx) => {
                 if (label.length > 50) label = label.substring(0, 50);
             } else if (arg.startsWith('author:')) {
                 author = sanitizeFilterValue(arg.substring(7).trim());
-                if (author.length > 39) author = author.substring(0, 39); // Максимум для GitHub username
+                if (author.length > 39) author = author.substring(0, 39);
             }
         });
 
@@ -115,11 +125,25 @@ module.exports = async (ctx) => {
             prCache.set(cacheKey, pullRequests);
         }
 
-        if (!pullRequests?.length) {
-            let message = `🔍 В *${escapeMarkdown(repoKey)}* нет PR`;
-            if (state !== 'open') message += ` со статусом \`${state}\``;
-            if (label) message += ` с меткой \`${escapeMarkdown(label)}\``;
-            if (author) message += ` от автора \`${escapeMarkdown(author)}\``;
+        // Проверяем есть ли PR
+        if (!pullRequests || pullRequests.length === 0) {
+            let message = `🔍 *В ${escapeMarkdown(repoKey)} нет PR*`;
+            
+            if (state !== 'open') {
+                message += ` со статусом \`${state}\``;
+            }
+            if (label) {
+                message += ` с меткой \`${escapeMarkdown(label)}\``;
+            }
+            if (author) {
+                message += ` от автора \`${escapeMarkdown(author)}\``;
+            }
+            
+            message += '\n\n💡 *Попробуйте:*\n';
+            message += `• Изменить статус: \`/pr ${repoKey} all\`\n`;
+            message += `• Убрать фильтры: \`/pr ${repoKey}\`\n`;
+            message += `• Проверить другой репозиторий`;
+            
             return sendMessage(ctx, message, { parse_mode: 'MarkdownV2' });
         }
 
@@ -150,13 +174,23 @@ module.exports = async (ctx) => {
         }
 
     } catch (error) {
-        logger.error(`PR Error: ${repoKey}`, error);
-        const errorMsg = error.response?.status === 404
-            ? `Репозиторий \`${repoKey}\` не найден`
-            : error.response?.status === 403
-                ? 'Лимит GitHub API исчерпан'
-                : `Ошибка: ${error.response?.data?.message || error.message}`;
+        logger.error(`PR Error: ${error.message}`);
+        
+        let errorMsg;
+        if (error.response?.status === 404) {
+            errorMsg = 'Репозиторий не найден';
+        } else if (error.response?.status === 403) {
+            errorMsg = 'Лимит GitHub API исчерпан';
+        } else if (error.response?.status === 409) {
+            errorMsg = 'Репозиторий пуст или не содержит PR';
+        } else {
+            errorMsg = error.response?.data?.message || error.message || 'Неизвестная ошибка';
+        }
 
-        await sendMessage(ctx, `❌ ${errorMsg}`, { parse_mode: 'MarkdownV2' });
+        await sendMessage(
+            ctx,
+            `❌ *Ошибка:* ${escapeMarkdown(errorMsg)}`,
+            { parse_mode: 'MarkdownV2' }
+        );
     }
 };

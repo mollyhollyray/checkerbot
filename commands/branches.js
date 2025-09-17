@@ -28,28 +28,24 @@ function validateLimit(limit) {
 
 module.exports = async (ctx) => {
     try {
-        console.log('Command context:', {
-            text: ctx.message?.text,
-            callback: ctx.callbackQuery?.data
-        });
-
-        if (ctx.from.id !== config.ADMIN_USER_ID) {
-                    return await sendMessage(
-                        ctx,
-                        '❌ Эта команда доступна только администратору',
-                        { parse_mode: 'HTML' }
-                    );
-                }
-
+        // Новый код для обработки как message, так и callback
         let args;
-        if (ctx.callbackQuery) {
-            const callbackData = ctx.callbackQuery.data.split(' ');
-            args = ['/branches', callbackData[1] || ''];
-        } else {
+        if (ctx.message && ctx.message.text) {
             args = ctx.message.text.split(' ').filter(arg => arg.trim());
+        } else if (ctx.callbackQuery && ctx.callbackQuery.data) {
+            args = ctx.callbackQuery.data.split(' ').filter(arg => arg.trim());
+        } else {
+            return await sendMessage(ctx, '❌ Неверный формат команды', { parse_mode: 'HTML' });
         }
 
-        if (args.length < 2 || !isValidRepoFormat(args[1])) {
+        console.log('Command context:', {
+            text: ctx.message?.text,
+            callback: ctx.callbackQuery?.data,
+            args: args
+        });
+
+        // Проверяем достаточно ли аргументов
+        if (args.length < 2 || !args[1].includes('/')) {
             const defaultRepo = storage.getFirstRepo();
             if (!defaultRepo) {
                 await sendMessage(
@@ -61,6 +57,7 @@ module.exports = async (ctx) => {
                 if (ctx.callbackQuery) await ctx.answerCbQuery();
                 return;
             }
+            // Добавляем defaultRepo как второй аргумент
             args[1] = defaultRepo;
         }
 

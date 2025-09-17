@@ -272,7 +272,7 @@ bot.action(/^quick_branches_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ct
   }
 });
 
-bot.action(/^quick_pr_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)_([a-zA-Z]+)$/, async (ctx) => {
+bot.action(/^quick_pr_(.+)_(.+)_(\d+)_(.+)$/, async (ctx) => {
   try {
     const [_, owner, repo, limit, state] = ctx.match;
     
@@ -283,23 +283,22 @@ bot.action(/^quick_pr_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)_([a-zA-Z]+)$/, asy
 
     const repoKey = `${owner}/${repo}`;
     
-    if (!storage.repoExists(owner, repo)) {
-      await ctx.answerCbQuery('❌ Репозиторий не отслеживается');
-      return;
-    }
-
-    // Валидация состояния
-    const validStates = ['open', 'closed', 'all'];
-    const finalState = validStates.includes(state) ? state : 'open';
-
-    ctx.message = {
-      text: `/pr ${repoKey} ${finalState} ${limit}`,
-      chat: ctx.callbackQuery.message.chat
+    // Создаем имитацию контекста для команды
+    const fakeContext = {
+      ...ctx,
+      message: {
+        text: `/pr ${repoKey} ${state} ${limit}`,
+        chat: ctx.callbackQuery.message.chat,
+        from: ctx.callbackQuery.from
+      },
+      bot: ctx.bot,
+      replyWithChatAction: ctx.replyWithChatAction.bind(ctx)
     };
     
     const prCmd = require('./commands/pr');
-    await prCmd(ctx);
+    await prCmd(fakeContext);
     await ctx.answerCbQuery();
+    
   } catch (error) {
     console.error('Quick PR callback error:', error);
     await ctx.answerCbQuery('❌ Ошибка загрузки PR');
