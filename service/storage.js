@@ -6,6 +6,7 @@ const { log } = require('../utils/logger');
 class Storage {
   constructor() {
     this.repos = new Map();
+    this.owners = new Map();
     this.initStorage();
   }
 
@@ -61,20 +62,92 @@ getFirstRepo() {
     return [...this.repos];
   }
 
- addRepo(owner, repo, data) {
+addOwner(owner) {
+    const ownerKey = owner.toLowerCase();
+    if (!this.owners.has(ownerKey)) {
+      this.owners.set(ownerKey, {
+        addedAt: new Date().toISOString(),
+        lastChecked: 0,
+        repoCount: 0
+      });
+      return this.save();
+    }
+    return false;
+  }
+
+  removeOwner(owner) {
+    const ownerKey = owner.toLowerCase();
+    const result = this.owners.delete(ownerKey);
+    if (result) this.save();
+    return result;
+  }
+
+  ownerExists(owner) {
+    return this.owners.has(owner.toLowerCase());
+  }
+
+  getTrackedOwners() {
+    return [...this.owners.keys()];
+  }
+
+  updateOwnerReposCount(owner, count) {
+    const ownerKey = owner.toLowerCase();
+    if (this.owners.has(ownerKey)) {
+      const ownerData = this.owners.get(ownerKey);
+      this.owners.set(ownerKey, {
+        ...ownerData,
+        repoCount: count,
+        lastChecked: Date.now()
+      });
+      return this.save();
+    }
+    return false;
+  }
+
+addRepo(owner, repo, data) {
     const key = `${owner}/${repo}`.toLowerCase();
     this.repos.set(key, {
-        defaultBranch: data.defaultBranch || 'main',
-        branch: data.branch || data.defaultBranch || 'main',
-        addedAt: new Date().toISOString(),
-        lastCommitSha: data.lastCommitSha,
-        lastCommitTime: data.lastCommitTime,
-        lastReleaseTag: data.lastReleaseTag || null,
-        lastReleaseTime: data.lastReleaseTime || 0,
-        ...data
+      defaultBranch: data.defaultBranch || 'main',
+      branch: data.branch || data.defaultBranch || 'main',
+      addedAt: new Date().toISOString(),
+      lastCommitSha: data.lastCommitSha,
+      lastCommitTime: data.lastCommitTime,
+      lastReleaseTag: data.lastReleaseTag || null,
+      lastReleaseTime: data.lastReleaseTime || 0,
+      trackedIndividually: true,
+      ...data
     });
     return this.save();
-}
+  }
+
+   addRepoFromOwner(owner, repo, data) {
+    const key = `${owner}/${repo}`.toLowerCase();
+    this.repos.set(key, {
+      defaultBranch: data.defaultBranch || 'main',
+      branch: data.branch || data.defaultBranch || 'main',
+      addedAt: new Date().toISOString(),
+      lastCommitSha: data.lastCommitSha,
+      lastCommitTime: data.lastCommitTime,
+      lastReleaseTag: data.lastReleaseTag || null,
+      lastReleaseTime: data.lastReleaseTime || 0,
+      trackedIndividually: false, // Не отдельно отслеживаемый
+      fromOwner: owner.toLowerCase(),
+      ...data
+    });
+    return this.save();
+  }
+
+  getReposByOwner(owner) {
+    const ownerKey = owner.toLowerCase();
+    return [...this.repos].filter(([key, data]) => {
+      return key.startsWith(ownerKey + '/') && !data.trackedIndividually;
+    });
+  }
+
+   isRepoIndividuallyTracked(owner, repo) {
+    const key = `${owner}/${repo}`.toLowerCase();
+    return this.repos.has(key) && this.repos.get(key).trackedIndividually;
+  }
 
   removeRepo(owner, repo) {
     const key = `${owner}/${repo}`.toLowerCase();

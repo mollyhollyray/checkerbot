@@ -106,6 +106,58 @@ async function checkBranchExists(owner, repo, branch) {
   }
 }
 
+async function fetchUserRepos(owner, limit = 100) {
+  try {
+    const data = await makeRequest(
+      `https://api.github.com/users/${owner}/repos`,
+      { 
+        per_page: limit,
+        sort: 'updated',
+        direction: 'desc'
+      }
+    );
+    return data;
+  } catch (error) {
+    logError(`Failed to fetch user repos: ${owner}`, error);
+    return [];
+  }
+}
+
+async function fetchOrgRepos(org, limit = 100) {
+  try {
+    const data = await makeRequest(
+      `https://api.github.com/orgs/${org}/repos`,
+      { 
+        per_page: limit,
+        sort: 'updated',
+        direction: 'desc'
+      }
+    );
+    return data;
+  } catch (error) {
+    logError(`Failed to fetch org repos: ${org}`, error);
+    return [];
+  }
+}
+
+async function getAccountType(owner) {
+  try {
+    const userData = await makeRequest(`https://api.github.com/users/${owner}`);
+    return userData.type; // 'User' или 'Organization'
+  } catch (error) {
+    // Если ошибка 404, пробуем как organization
+    if (error.response?.status === 404) {
+      try {
+        await makeRequest(`https://api.github.com/orgs/${owner}`);
+        return 'Organization';
+      } catch (orgError) {
+        return 'Unknown';
+      }
+    }
+    return 'User'; // По умолчанию считаем User
+  }
+}
+
 async function fetchRepoData(owner, repo) {
   try {
     const [repoInfo, commits] = await Promise.all([
@@ -245,5 +297,8 @@ module.exports = {
   getTotalCommitsCount,
   apiRateLimit,
   fetchLatestRelease,
-  fetchAllReleases
+  fetchAllReleases,
+  getAccountType,
+  fetchUserRepos, 
+  fetchOrgRepos
 };

@@ -28,7 +28,13 @@ module.exports = {
       const updates = [];
       const releaseUpdates = [];
 
+      // Проверяем отдельные репозитории
       for (const [repoKey, repoData] of repos) {
+        // Пропускаем репозитории, которые отслеживаются через владельца
+        if (!repoData.trackedIndividually && repoData.fromOwner) {
+          continue;
+        }
+
         processedRepos++;
         try {
           const [owner, repo] = repoKey.split('/');
@@ -136,6 +142,66 @@ module.exports = {
         }
       }
 
+      // Проверяем репозитории отслеживаемых владельцев
+      const trackedOwners = storage.getTrackedOwners();
+      for (const owner of trackedOwners) {
+        try {
+          log(`Проверяем новые репозитории владельца: ${owner}`, 'info', {
+            context: 'ownerCheck',
+            owner
+          });
+
+          const accountType = await github.getAccountType(owner);
+          let ownerRepos = [];
+          
+          if (accountType === 'Organization') {
+            ownerRepos = await github.fetchOrgRepos(owner, 30);
+          } else {
+            ownerRepos = await github.fetchUserRepos(owner, 30);
+          }
+
+          let newReposCount = 0;
+
+          // Проверяем новые репозитории у владельца
+          for (const repo of ownerRepos) {
+            if (!storage.repoExists(owner, repo.name)) {
+              try {
+                const repoData = await github.fetchRepoData(owner, repo.name);
+                storage.addRepoFromOwner(owner, repo.name, {
+                  lastCommitSha: repoData.lastCommitSha,
+                  lastCommitTime: repoData.lastCommitTime,
+                  defaultBranch: repoData.defaultBranch
+                });
+                
+                newReposCount++;
+                log(`Добавлен новый репозиторий от владельца: ${owner}/${repo.name}`, 'info', {
+                  context: 'newRepoFromOwner',
+                  owner,
+                  repo: repo.name
+                });
+
+                // Отправляем уведомление о новом репозитории
+                await this.sendNewRepoNotification(bot, owner, repo.name);
+
+              } catch (repoError) {
+                logError(`Ошибка при добавлении репозитория ${owner}/${repo.name}`, repoError);
+              }
+            }
+          }
+
+          if (newReposCount > 0) {
+            log(`Добавлено ${newReposCount} новых репозиториев от владельца: ${owner}`, 'info');
+            storage.updateOwnerReposCount(owner, newReposCount);
+          }
+
+        } catch (error) {
+          logError(`Ошибка при проверке владельца ${owner}`, error, {
+            context: 'ownerCheck',
+            owner
+          });
+        }
+      }
+
       const duration = Date.now() - startTime;
       log('Проверка репозиториев завершена', 'info', {
         context: 'checkAllReposSummary',
@@ -146,6 +212,7 @@ module.exports = {
         failedChecks,
         updatesFound: updates.length,
         releasesFound: releaseUpdates.length,
+        trackedOwners: trackedOwners.length,
         performance: {
           msPerRepo: duration / repos.length,
           reposPerSecond: (repos.length / (duration / 1000)).toFixed(2)
@@ -231,6 +298,42 @@ module.exports = {
         chatId: process.env.ADMIN_USER_ID,
         errorMessage: error.message,
         stack: error.stack
+      });
+    }
+  },
+
+  async sendNewRepoNotification(bot, owner, repoName) {
+    try {
+      const message = `
+🎯 <b>Новый репозиторий у отслеживаемого владельца!</b>
+
+👤 <b>Владелец:</b> <code>${owner}</code>
+📦 <b>Репозиторий:</b> <code>${repoName}</code>
+🔗 <b>Ссылка:</b> https://github.com/${owner}/${repoName}
+
+💡 <i>Репозиторий добавлен в автоматическое отслеживание</i>
+      `.trim();
+
+      await bot.telegram.sendMessage(
+        process.env.ADMIN_USER_ID,
+        message,
+        { 
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        }
+      );
+
+      log('Уведомление о новом репозитории отправлено', 'info', {
+        context: 'sendNewRepoNotification',
+        owner,
+        repo: repoName
+      });
+
+    } catch (error) {
+      logError('Ошибка отправки уведомления о новом репозитории', error, {
+        context: 'sendNewRepoNotification',
+        owner,
+        repo: repoName
       });
     }
   },

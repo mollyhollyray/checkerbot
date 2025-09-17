@@ -25,7 +25,10 @@ const commands = {
   pm2: require('./commands/pm2'),
   reload: require('./commands/reload'),
   logs: require('./commands/logs'),
-   releases: require('./commands/releases'),
+  releases: require('./commands/releases'),
+  trackowner: require('./commands/trackowner'),
+  untrackowner: require('./commands/untrackowner'),
+  ownerstats: require('./commands/ownerstats'),
 };
 
 Object.entries(commands).forEach(([name, handler]) => {
@@ -125,6 +128,79 @@ bot.action(/^help_/, async (ctx) => {
   }
 });
 
+bot.action(/^list_page_(\d+)$/, async (ctx) => {
+    try {
+        const page = parseInt(ctx.match[1]);
+        
+        const fakeContext = {
+            ...ctx,
+            message: {
+                text: `/list ${page}`,
+                chat: ctx.callbackQuery.message.chat,
+                from: ctx.callbackQuery.from
+            },
+            bot: ctx.bot,
+            replyWithChatAction: ctx.replyWithChatAction.bind(ctx)
+        };
+        
+        const listCmd = require('./commands/list');
+        await listCmd(fakeContext);
+        await ctx.answerCbQuery();
+        
+    } catch (error) {
+        console.error('List page callback error:', error);
+        await ctx.answerCbQuery('❌ Ошибка перехода по страницам');
+    }
+});
+
+bot.action('list_current_page', async (ctx) => {
+    await ctx.answerCbQuery('Текущая страница');
+});
+
+bot.action('owner_stats', async (ctx) => {
+    try {
+        const fakeContext = {
+            ...ctx,
+            message: {
+                text: '/ownerstats',
+                chat: ctx.callbackQuery.message.chat,
+                from: ctx.callbackQuery.from
+            },
+            bot: ctx.bot
+        };
+        
+        const ownerstatsCmd = require('./commands/ownerstats');
+        await ownerstatsCmd(fakeContext);
+        await ctx.answerCbQuery();
+        
+    } catch (error) {
+        console.error('Owner stats callback error:', error);
+        await ctx.answerCbQuery('❌ Ошибка загрузки статистики');
+    }
+});
+
+bot.action('add_repo_help', async (ctx) => {
+    try {
+        const fakeContext = {
+            ...ctx,
+            message: {
+                text: '/help add',
+                chat: ctx.callbackQuery.message.chat,
+                from: ctx.callbackQuery.from
+            },
+            bot: ctx.bot
+        };
+        
+        const helpCmd = require('./commands/help');
+        await helpCmd(fakeContext);
+        await ctx.answerCbQuery();
+        
+    } catch (error) {
+        console.error('Add repo help callback error:', error);
+        await ctx.answerCbQuery('❌ Ошибка загрузки справки');
+    }
+});
+
 bot.action(/^quick_releases_(.+)_(.+)_(\d+)$/, async (ctx) => {
   try {
     const [_, owner, repo, limit] = ctx.match;
@@ -182,6 +258,54 @@ bot.action('help_reload', async (ctx) => {
 });
 
 
+bot.action(/^list_owner_(.+)_(\d+)$/, async (ctx) => {
+    try {
+        const [_, owner, page] = ctx.match;
+        const pageNum = parseInt(page);
+        
+        const fakeContext = {
+            ...ctx,
+            message: {
+                text: `/list ${pageNum} ${owner}`,
+                chat: ctx.callbackQuery.message.chat,
+                from: ctx.callbackQuery.from
+            },
+            bot: ctx.bot,
+            replyWithChatAction: ctx.replyWithChatAction.bind(ctx)
+        };
+        
+        const listCmd = require('./commands/list');
+        await listCmd(fakeContext);
+        await ctx.answerCbQuery();
+        
+    } catch (error) {
+        console.error('List owner callback error:', error);
+        await ctx.answerCbQuery('❌ Ошибка загрузки репозиториев владельца');
+    }
+});
+
+bot.action(/^list_main_(\d+)$/, async (ctx) => {
+    const page = parseInt(ctx.match[1]);
+    await executeListCommand(ctx, `list main ${page}`);
+});
+
+bot.action(/^list_owner_([^_]+)_(\d+)$/, async (ctx) => {
+    const [_, owner, page] = ctx.match;
+    await executeListCommand(ctx, `list owner ${owner} ${page}`);
+});
+
+bot.action('list_owner_view', async (ctx) => {
+    await executeListCommand(ctx, 'list owner');
+});
+
+bot.action('list_stats', async (ctx) => {
+    await executeListCommand(ctx, 'list stats');
+});
+
+bot.action('list_current', async (ctx) => {
+    await ctx.answerCbQuery('Текущая страница');
+});
+
 bot.action(/^help_branches/, async (ctx) => {
   try {
     const defaultRepo = storage.getFirstRepo();
@@ -203,6 +327,30 @@ bot.action(/^help_branches/, async (ctx) => {
     await ctx.answerCbQuery('❌ Ошибка загрузки веток');
   }
 });
+
+async function executeListCommand(ctx, command) {
+    try {
+        const fakeContext = {
+            ...ctx,
+            message: {
+                text: `/${command}`,
+                chat: ctx.callbackQuery.message.chat,
+                from: ctx.callbackQuery.from,
+                message_id: ctx.callbackQuery.message.message_id // Передаем ID сообщения
+            },
+            bot: ctx.bot,
+            callbackQuery: ctx.callbackQuery, // Сохраняем callbackQuery
+            replyWithChatAction: ctx.replyWithChatAction.bind(ctx)
+        };
+        
+        const listCmd = require('./commands/list');
+        await listCmd(fakeContext);
+        
+    } catch (error) {
+        console.error('List callback error:', error);
+        await ctx.answerCbQuery('❌ Ошибка выполнения команды');
+    }
+}
 
 bot.action(/^prview_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) => {
   try {
