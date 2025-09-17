@@ -186,19 +186,19 @@ module.exports = {
 
       // Основные команды
       buttons.push(
-        [{
-          text: "🌿 3 последних коммита",
-          callback_data: `quick_last_${owner}_${repo}_3`
-        }],
-        [{
-          text: "📊 10 активных веток",
-          callback_data: `quick_branches_${owner}_${repo}_10`
-        }],
-        [{
-          text: "🔄 10 последних PR",
-          callback_data: `quick_pr_${owner}_${repo}_10_open`
-        }]
-      );
+  [{
+    text: "🌿 3 последних коммита",
+    callback_data: `quick_last_${owner}_${repo}_3`
+  }],
+  [{
+    text: "📊 10 активных веток",
+    callback_data: `quick_branches_${owner}_${repo}_10`
+  }],
+  [{
+    text: "🔄 10 последних PR",
+    callback_data: `quick_pr_${owner}_${repo}_10_open`
+  }]
+);
 
       // Кнопка удаления с подтверждением
       buttons.push([{

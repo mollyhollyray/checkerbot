@@ -5,8 +5,31 @@ const storage = require('../service/storage');
 
 module.exports = async (ctx) => {
     try {
+        const args = ctx.message.text.split(' ').slice(1);
+        
+        // Валидация дополнительных аргументов
+        if (args.length > 0 && args[0] !== 'все' && args[0] !== 'all') {
+            return await sendMessage(
+                ctx,
+                '<b>❌ Неверный аргумент</b>\n\n' +
+                'Используйте: <code>/check</code> или <code>/check все</code>',
+                { parse_mode: 'HTML' }
+            );
+        }
+
         await ctx.replyWithChatAction('typing');
-        await sendMessage(ctx, '🔍 Запуск проверки репозиториев...');
+        
+        const reposCount = storage.getRepos().length;
+        if (reposCount === 0) {
+            return await sendMessage(
+                ctx,
+                '📭 Нет отслеживаемых репозиториев для проверки\n\n' +
+                'Добавьте репозитории командой /add',
+                { parse_mode: 'HTML' }
+            );
+        }
+
+        await sendMessage(ctx, `🔍 Запуск проверки ${reposCount} репозиториев...`);
 
         const startTime = Date.now();
         const updates = await checker.checkAllRepos(ctx.bot);
@@ -15,7 +38,7 @@ module.exports = async (ctx) => {
         if (updates.length === 0) {
             return await sendMessage(
                 ctx,
-                `🔄 Проверка завершена за ${duration} сек.\n` +
+                `✅ Проверка завершена за ${duration} сек.\n` +
                 'Все репозитории актуальны, новых коммитов не найдено.'
             );
         }
@@ -25,10 +48,9 @@ module.exports = async (ctx) => {
         updates.forEach(update => {
             message += 
 `📌 <b>${update.repoKey}</b> (${update.branch})
-├ 🆕 Коммит: <code>${update.newCommitSha.slice(0, 7)}</code>
-├ 👤 ${update.commitAuthor}
-├ 📝 ${update.commitMessage.split('\n')[0]}
-└ 🔗 <a href="${update.commitUrl}">Ссылка на коммит</a>\n\n`;
+├ 🆕 Коммит: <code>${update.newSha.slice(0, 7)}</code>
+├ 📝 ${update.message.split('\n')[0].substring(0, 50)}...
+└ 🔗 <a href="${update.url}">Ссылка на коммит</a>\n\n`;
         });
 
         message += '<b>Проверенные репозитории:</b>\n';

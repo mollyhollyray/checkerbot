@@ -2,16 +2,43 @@ const axios = require('axios');
 const { sendMessage, escapeMarkdown } = require('../utils/message');
 const logger = require('../utils/logger');
 const config = require('../config');
+const storage = require('../service/storage');
 const NodeCache = require('node-cache');
 
 const PR_CACHE_TTL = 300;
 const MAX_PR_PER_REQUEST = 15;
 const prCache = new NodeCache({ stdTTL: PR_CACHE_TTL });
 
+function isValidRepoFormat(repoInput) {
+    return repoInput && 
+           repoInput.includes('/') && 
+           repoInput.split('/').length === 2 &&
+           repoInput.split('/')[0].length > 0 &&
+           repoInput.split('/')[1].length > 0;
+}
+
+function sanitizeRepoInput(repoInput) {
+    return repoInput.replace(/[^a-zA-Z0-9_\-\.\/]/g, '').toLowerCase();
+}
+
+function validateState(state) {
+    const validStates = ['open', 'closed', 'all'];
+    return validStates.includes(state) ? state : 'open';
+}
+
+function validateLimit(limit) {
+    const num = parseInt(limit);
+    return !isNaN(num) && num > 0 && num <= MAX_PR_PER_REQUEST ? num : 5;
+}
+
+function sanitizeFilterValue(value) {
+    return value.replace(/[^a-zA-Z0-9_\-\.\s]/g, '');
+}
+
 module.exports = async (ctx) => {
     const args = ctx.message.text.split(' ').filter(arg => arg.trim());
     
-    if (args.length < 2) {
+    if (args.length < 2 || !isValidRepoFormat(args[1])) {
         return sendMessage(
             ctx,
             '❌ *Формат команды*\n\n' +
@@ -26,33 +53,38 @@ module.exports = async (ctx) => {
         );
     }
 
-    const [owner, repo] = args[1].split('/');
-    if (!owner || !repo) {
+    const sanitizedInput = sanitizeRepoInput(args[1]);
+    const [owner, repo] = sanitizedInput.split('/');
+    const repoKey = `${owner}/${repo}`.toLowerCase();
+
+    if (owner.length > 50 || repo.length > 100) {
         return sendMessage(
             ctx,
-            '❌ Неверный формат. Используйте: `owner/repo`',
+            '❌ Слишком длинное имя владельца или репозитория',
             { parse_mode: 'MarkdownV2' }
         );
     }
 
-    const repoKey = `${owner}/${repo}`.toLowerCase();
-    let state = 'open';
-    let limit = 5;
-    let label = null;
-    let author = null;
-
     try {
         await ctx.replyWithChatAction('typing');
 
+        let state = 'open';
+        let limit = 5;
+        let label = null;
+        let author = null;
+
+        // Парсим аргументы с валидацией
         args.slice(2).forEach(arg => {
             if (['open', 'closed', 'all'].includes(arg)) {
-                state = arg;
+                state = validateState(arg);
             } else if (/^\d+$/.test(arg)) {
-                limit = Math.min(parseInt(arg), MAX_PR_PER_REQUEST);
+                limit = validateLimit(arg);
             } else if (arg.startsWith('label:')) {
-                label = arg.substring(6).trim();
+                label = sanitizeFilterValue(arg.substring(6).trim());
+                if (label.length > 50) label = label.substring(0, 50);
             } else if (arg.startsWith('author:')) {
-                author = arg.substring(7).trim();
+                author = sanitizeFilterValue(arg.substring(7).trim());
+                if (author.length > 39) author = author.substring(0, 39); // Максимум для GitHub username
             }
         });
 

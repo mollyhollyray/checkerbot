@@ -2,6 +2,126 @@ const axios = require('axios');
 const config = require('../config');
 const { sendMessage, sendLongMessage, escapeHtml } = require('../utils/message');
 const { logError } = require('../utils/logger');
+const storage = require('../service/storage');
+
+function isValidRepoFormat(repoInput) {
+    return repoInput && 
+           repoInput.includes('/') && 
+           repoInput.split('/').length === 2 &&
+           repoInput.split('/')[0].length > 0 &&
+           repoInput.split('/')[1].length > 0;
+}
+
+function sanitizeRepoInput(repoInput) {
+    return repoInput.replace(/[^a-zA-Z0-9_\-\.\/]/g, '').toLowerCase();
+}
+
+function validatePRNumber(prNumber) {
+    const num = parseInt(prNumber);
+    return !isNaN(num) && num > 0 && num <= 1000000 ? num : null;
+}
+
+function sanitizeRepoIdentifier(repoIdentifier) {
+    return repoIdentifier.replace(/[^a-zA-Z0-9_\-\.\/]/g, '');
+}
+
+module.exports = async (ctx) => {
+    try {
+        const args = ctx.message.text.split(' ').slice(1);
+        
+        if (args.length < 2) {
+            return await sendMessage(
+                ctx,
+                '<b>❌ Неверный формат команды</b>\n\n' +
+                '<i>Использование:</i> <code>/prview &lt;owner/repo&gt; &lt;PR_number&gt;</code>\n\n' +
+                '<i>Пример:</i>\n' +
+                '<code>/prview facebook/react 123</code>',
+                { parse_mode: 'HTML' }
+            );
+        }
+
+        const repoIdentifier = sanitizeRepoIdentifier(args[0]);
+        const prNumberStr = args[1];
+
+        if (!isValidRepoFormat(repoIdentifier)) {
+            return await sendMessage(
+                ctx,
+                '<b>❌ Неверный формат репозитория</b>\n\n' +
+                '<i>Формат:</i> <code>&lt;owner&gt;/&lt;repo&gt;</code>\n' +
+                '<i>Пример:</i> <code>facebook/react</code>',
+                { parse_mode: 'HTML' }
+            );
+        }
+
+        const prNumber = validatePRNumber(prNumberStr);
+        if (!prNumber) {
+            return await sendMessage(
+                ctx,
+                '<b>❌ Неверный номер PR</b>\n\n' +
+                'Номер PR должен быть положительным числом (1-1000000)',
+                { parse_mode: 'HTML' }
+            );
+        }
+
+        const sanitizedInput = sanitizeRepoInput(repoIdentifier);
+        const [owner, repo] = sanitizedInput.split('/');
+        const repoKey = `${owner}/${repo}`;
+
+        if (owner.length > 50 || repo.length > 100) {
+            return await sendMessage(
+                ctx,
+                '<b>❌ Слишком длинное имя владельца или репозитория</b>',
+                { parse_mode: 'HTML' }
+            );
+        }
+
+        await ctx.replyWithChatAction('typing');
+        const pr = await getPRDetails(owner, repo, prNumber);
+        
+        if (!pr || pr.message === 'Not Found') {
+            return await sendMessage(
+                ctx,
+                `<b>❌ PR #${prNumber} не найден в репозитории ${escapeHtml(repoKey)}</b>`,
+                { parse_mode: 'HTML' }
+            );
+        }
+
+        const checks = await getPRChecks(owner, repo, pr.head.sha);
+        const message = formatPRMessage(pr, checks);
+        
+        await sendLongMessage(ctx, message, { 
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+        });
+
+    } catch (error) {
+        let errorMessage = '<b>❌ Ошибка при получении PR</b>';
+        
+        if (error.response) {
+            if (error.response.status === 404) {
+                errorMessage += '\n\n<i>Проверьте:</i>\n' +
+                               '• Существование репозитория\n' +
+                               '• Существование PR\n' +
+                               '• Ваши права доступа';
+            } else {
+                errorMessage += `\n\n<code>Код ошибки: ${error.response.status}</code>`;
+            }
+        } else {
+            errorMessage += `\n\n<code>${escapeHtml(error.message)}</code>`;
+        }
+
+        await sendMessage(
+            ctx,
+            errorMessage,
+            { 
+                parse_mode: 'HTML',
+                disable_web_page_preview: true 
+            }
+        );
+        
+        logError(error, `PR View command failed: ${error.message}`);
+    }
+};
 
 async function getPRDetails(owner, repo, prNumber) {
   try {

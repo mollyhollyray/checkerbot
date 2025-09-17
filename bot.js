@@ -24,7 +24,7 @@ Object.entries(commands).forEach(([name, handler]) => {
   console.log(`[INFO] Команда загружена: /${name}`);
 });
 
-bot.action(/^confirm_remove_(.+)$/, async (ctx) => {
+bot.action(/^confirm_remove_([a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+)$/, async (ctx) => {
   const repoKey = ctx.match[1];
   const [owner, repo] = repoKey.split('/');
   
@@ -37,6 +37,10 @@ bot.action(/^confirm_remove_(.+)$/, async (ctx) => {
     );
   } else {
     await ctx.answerCbQuery('❌ Ошибка при удалении');
+  }
+  if (!storage.repoExists(owner, repo)) {
+    await ctx.answerCbQuery('❌ Репозиторий уже удален');
+    return;
   }
 });
 
@@ -90,11 +94,22 @@ bot.action(/^help_branches/, async (ctx) => {
   }
 });
 
-bot.action(/^prview_(.+)_(.+)_(\d+)$/, async (ctx) => {
+bot.action(/^prview_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) => {
   try {
     const [_, owner, repo, prNumber] = ctx.match;
+    
+    if (!owner || !repo || !prNumber) {
+      await ctx.answerCbQuery('❌ Неверные параметры');
+      return;
+    }
+
     const repoKey = `${owner}/${repo}`;
     
+    if (!storage.repoExists(owner, repo)) {
+      await ctx.answerCbQuery('❌ Репозиторий не отслеживается');
+      return;
+    }
+
     ctx.message = {
       text: `/prview ${repoKey} ${prNumber}`,
       chat: ctx.callbackQuery.message.chat
@@ -109,13 +124,27 @@ bot.action(/^prview_(.+)_(.+)_(\d+)$/, async (ctx) => {
   }
 });
 
-bot.action(/^quick_last_(.+)_(.+)_(\d+)$/, async (ctx) => {
+bot.action(/^quick_last_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) => {
   try {
     const [_, owner, repo, count] = ctx.match;
+    
+    if (!owner || !repo) {
+      await ctx.answerCbQuery('❌ Неверные параметры');
+      return;
+    }
+
+    const repoKey = `${owner}/${repo}`;
+    
+    if (!storage.repoExists(owner, repo)) {
+      await ctx.answerCbQuery('❌ Репозиторий не отслеживается');
+      return;
+    }
+
     ctx.message = {
-      text: `/last ${owner}/${repo} ${count}`,
+      text: `/last ${repoKey} ${count}`,
       chat: ctx.callbackQuery.message.chat
     };
+    
     const lastCmd = require('./commands/last');
     await lastCmd(ctx);
     await ctx.answerCbQuery();
@@ -125,13 +154,27 @@ bot.action(/^quick_last_(.+)_(.+)_(\d+)$/, async (ctx) => {
   }
 });
 
-bot.action(/^quick_branches_(.+)_(.+)_(\d+)$/, async (ctx) => {
+bot.action(/^quick_branches_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) => {
   try {
     const [_, owner, repo, limit] = ctx.match;
+    
+    if (!owner || !repo) {
+      await ctx.answerCbQuery('❌ Неверные параметры');
+      return;
+    }
+
+    const repoKey = `${owner}/${repo}`;
+    
+    if (!storage.repoExists(owner, repo)) {
+      await ctx.answerCbQuery('❌ Репозиторий не отслеживается');
+      return;
+    }
+
     ctx.message = {
-      text: `/branches ${owner}/${repo} ${limit}`,
+      text: `/branches ${repoKey} ${limit}`,
       chat: ctx.callbackQuery.message.chat
     };
+    
     const branchesCmd = require('./commands/branches');
     await branchesCmd(ctx);
     await ctx.answerCbQuery();
@@ -141,13 +184,31 @@ bot.action(/^quick_branches_(.+)_(.+)_(\d+)$/, async (ctx) => {
   }
 });
 
-bot.action(/^quick_pr_(.+)_(.+)_(\d+)_(.+)$/, async (ctx) => {
+bot.action(/^quick_pr_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)_([a-zA-Z]+)$/, async (ctx) => {
   try {
     const [_, owner, repo, limit, state] = ctx.match;
+    
+    if (!owner || !repo) {
+      await ctx.answerCbQuery('❌ Неверные параметры');
+      return;
+    }
+
+    const repoKey = `${owner}/${repo}`;
+    
+    if (!storage.repoExists(owner, repo)) {
+      await ctx.answerCbQuery('❌ Репозиторий не отслеживается');
+      return;
+    }
+
+    // Валидация состояния
+    const validStates = ['open', 'closed', 'all'];
+    const finalState = validStates.includes(state) ? state : 'open';
+
     ctx.message = {
-      text: `/pr ${owner}/${repo} ${state} ${limit}`,
+      text: `/pr ${repoKey} ${finalState} ${limit}`,
       chat: ctx.callbackQuery.message.chat
     };
+    
     const prCmd = require('./commands/pr');
     await prCmd(ctx);
     await ctx.answerCbQuery();

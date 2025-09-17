@@ -4,22 +4,46 @@ const { log, logError } = require('../utils/logger');
 const { sendMessage, escapeHtml } = require('../utils/message');
 const config = require('../config');
 
+function isValidRepoFormat(repoInput) {
+    return repoInput && 
+           repoInput.includes('/') && 
+           repoInput.split('/').length === 2 &&
+           repoInput.split('/')[0].length > 0 &&
+           repoInput.split('/')[1].length > 0;
+}
+
+function sanitizeRepoInput(repoInput) {
+    return repoInput.replace(/[^a-zA-Z0-9_\-\.\/]/g, '').toLowerCase();
+}
+
 module.exports = async (ctx) => {
     try {
         const args = ctx.message.text.split(' ').slice(1);
         const repoInput = args[0];
 
-        if (!repoInput || !repoInput.includes('/')) {
+        if (!repoInput || !isValidRepoFormat(repoInput)) {
             return await sendMessage(
                 ctx,
-                '<b>❌ Неверный формат команды</b>\n\n' +
+                '<b>❌ Неверный формат репозитория</b>\n\n' +
                 '<i>Используйте:</i> <code>/add владелец/репозиторий</code>\n' +
-                '<i>Пример:</i> <code>/add facebook/react</code>',
+                '<i>Пример:</i> <code>/add facebook/react</code>\n\n' +
+                '<b>Разрешены только:</b> буквы, цифры, дефисы и подчеркивания',
                 { parse_mode: 'HTML' }
             );
         }
 
-        const [owner, repo] = repoInput.split('/');
+        const sanitizedInput = sanitizeRepoInput(repoInput);
+        const [owner, repo] = sanitizedInput.split('/');
+
+        if (owner.length > 50 || repo.length > 100) {
+            return await sendMessage(
+                ctx,
+                '<b>❌ Слишком длинное имя владельца или репозитория</b>\n\n' +
+                'Максимум: 50 символов для владельца, 100 для репозитория',
+                { parse_mode: 'HTML' }
+            );
+        }
+
         const repoKey = `${owner}/${repo}`.toLowerCase();
 
         if (storage.repos.has(repoKey)) {
@@ -31,13 +55,23 @@ module.exports = async (ctx) => {
             );
         }
 
+        if (storage.getRepos().length >= config.MAX_REPOS) {
+            return await sendMessage(
+                ctx,
+                `<b>❌ Достигнут лимит репозиториев (${config.MAX_REPOS})</b>\n\n` +
+                'Удалите некоторые репозитории командой /remove',
+                { parse_mode: 'HTML' }
+            );
+        }
+
         await ctx.replyWithChatAction('typing');
 
         const isAccessible = await isRepoAccessible(owner, repo);
         if (!isAccessible) {
             return await sendMessage(
                 ctx,
-                `❌ Репозиторий не доступен. Проверьте:\n1. Существование\n2. Публичный доступ\n3. Ваши права`,
+                `<b>❌ Репозиторий <code>${escapeHtml(repoKey)}</code> не доступен</b>\n\n` +
+                'Проверьте:\n1. Существование репозитория\n2. Публичный доступ\n3. Ваши права доступа',
                 { parse_mode: 'HTML' }
             );
         }
@@ -62,7 +96,7 @@ module.exports = async (ctx) => {
         ].join('\n');
 
         await sendMessage(ctx, replyText, { parse_mode: 'HTML' });
-        log(`Добавлен репозиторий: ${repoKey}`);
+        log(`Добавлен репозиторий: ${repoKey}`, 'info', { owner, repo });
 
     } catch (error) {
         logError(error, 'Ошибка в команде /add');

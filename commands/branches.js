@@ -8,6 +8,23 @@ const branchesCache = new NodeCache({ stdTTL: 300 });
 const DEFAULT_BRANCHES_LIMIT = 15;
 const MAX_BRANCHES_LIMIT = 50;
 
+function isValidRepoFormat(repoInput) {
+    return repoInput && 
+           repoInput.includes('/') && 
+           repoInput.split('/').length === 2 &&
+           repoInput.split('/')[0].length > 0 &&
+           repoInput.split('/')[1].length > 0;
+}
+
+function sanitizeRepoInput(repoInput) {
+    return repoInput.replace(/[^a-zA-Z0-9_\-\.\/]/g, '').toLowerCase();
+}
+
+function validateLimit(limit) {
+    const num = parseInt(limit);
+    return !isNaN(num) && num > 0 && num <= MAX_BRANCHES_LIMIT ? num : DEFAULT_BRANCHES_LIMIT;
+}
+
 module.exports = async (ctx) => {
     try {
         console.log('Command context:', {
@@ -23,7 +40,7 @@ module.exports = async (ctx) => {
             args = ctx.message.text.split(' ').filter(arg => arg.trim());
         }
 
-        if (!args[1]?.includes('/')) {
+        if (args.length < 2 || !isValidRepoFormat(args[1])) {
             const defaultRepo = storage.getFirstRepo();
             if (!defaultRepo) {
                 await sendMessage(
@@ -38,12 +55,25 @@ module.exports = async (ctx) => {
             args[1] = defaultRepo;
         }
 
-        const [owner, repo] = args[1].split('/');
+        const sanitizedInput = sanitizeRepoInput(args[1]);
+        const [owner, repo] = sanitizedInput.split('/');
         const repoName = `${owner}/${repo}`;
+        
         let limit = DEFAULT_BRANCHES_LIMIT;
 
-        if (args.length >= 3 && !isNaN(args[2])) {
-            limit = Math.min(parseInt(args[2]), MAX_BRANCHES_LIMIT);
+        if (args.length >= 3) {
+            limit = validateLimit(args[2]);
+        }
+
+        if (!storage.repoExists(owner, repo)) {
+            await sendMessage(
+                ctx,
+                `<b>❌ Репозиторий <code>${escapeHtml(repoName)}</code> не отслеживается</b>\n\n` +
+                'Добавьте его командой /add',
+                { parse_mode: 'HTML' }
+            );
+            if (ctx.callbackQuery) await ctx.answerCbQuery();
+            return;
         }
 
         await ctx.replyWithChatAction('typing');
