@@ -12,7 +12,6 @@ async function executePM2Command(command, timeout = 15000) {
         return { success: true, output: result.stdout || result.stderr };
     } catch (error) {
         // PM2 часто возвращает ошибки даже при успешном выполнении
-        // Проверяем, действительно ли это ошибка или просто PM2 being PM2
         if (error.stdout && error.stdout.includes('restarting') ||
             error.stdout && error.stdout.includes('reloaded') ||
             error.stdout && error.stdout.includes('stopped') ||
@@ -24,9 +23,11 @@ async function executePM2Command(command, timeout = 15000) {
 }
 
 module.exports = async (ctx) => {
+    let command; // Объявляем переменную здесь, чтобы она была доступна в catch
+    
     try {
         const args = ctx.message.text.split(' ').slice(1);
-        const command = args[0];
+        command = args[0]; // Присваиваем значение
 
         // Проверяем права (только админ)
         if (ctx.from.id !== config.ADMIN_USER_ID) {
@@ -146,7 +147,7 @@ module.exports = async (ctx) => {
             errorMessage += `<code>${error.message}</code>`;
         }
 
-        // Добавляем подсказку для restart
+        // Добавляем подсказку для restart (теперь command доступна)
         if (command === 'restart') {
             errorMessage += `\n\n💡 <i>Но бот вероятно перезагрузился успешно</i>`;
         }
