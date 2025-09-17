@@ -8,6 +8,8 @@ const path = require('path');
 const { log } = require('./utils/logger');
 
 const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
+const reloadCommand = require('./commands/reload');
+reloadCommand.setBotInstance(bot);
 
 const commands = {
   add: require('./commands/add'),
@@ -22,6 +24,7 @@ const commands = {
   remove: require('./commands/remove'),
   pm2: require('./commands/pm2'),
   reload: require('./commands/reload'),
+  logs: require('./commands/logs'),
 };
 
 Object.entries(commands).forEach(([name, handler]) => {

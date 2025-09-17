@@ -3,76 +3,48 @@ const config = require('../config');
 const fs = require('fs');
 const path = require('path');
 
-// Кэш для отслеживания загруженных модулей
-const moduleCache = new Map();
+// Глобальная ссылка на экземпляр бота
+let botInstance = null;
 
-function clearModuleCache(modulePath) {
-    try {
-        const resolvedPath = require.resolve(modulePath);
-        
-        // Удаляем из кэша Node.js
-        delete require.cache[resolvedPath];
-        
-        // Удаляем из нашего кэша
-        moduleCache.delete(modulePath);
-        
-        return true;
-    } catch (error) {
-        console.error(`Error clearing cache for ${modulePath}:`, error);
-        return false;
-    }
+function setBotInstance(bot) {
+    botInstance = bot;
 }
 
-function reloadCommand(commandName) {
+async function reloadCommand(commandName) {
     try {
-        const commandPath = `./commands/${commandName}`;
         const fullPath = path.join(__dirname, '..', 'commands', `${commandName}.js`);
         
-        // Проверяем существует ли файл
         if (!fs.existsSync(fullPath)) {
             return { success: false, error: 'File not found' };
         }
+
+        // 1. Очищаем кэш
+        delete require.cache[require.resolve(fullPath)];
         
-        // Очищаем кэш
-        clearModuleCache(commandPath);
+        // 2. Перезагружаем модуль
+        const newCommand = require(fullPath);
         
-        // Перезагружаем модуль
-        const newModule = require(commandPath);
+        // 3. Удаляем старую команду из бота
+        const commandHandler = botInstance?.command?.handlers?.find(
+            h => h.toString().includes(commandName)
+        );
         
-        // Обновляем в основном боте
-        if (require.cache[require.resolve('../bot.js')]) {
-            const botModule = require.cache[require.resolve('../bot.js')];
-            if (botModule.exports && botModule.exports.commands) {
-                botModule.exports.commands[commandName] = newModule;
+        if (commandHandler) {
+            // Сложная магия с внутренностями Telegraf
+            const index = botInstance.command.handlers.indexOf(commandHandler);
+            if (index > -1) {
+                botInstance.command.handlers.splice(index, 1);
             }
         }
         
-        moduleCache.set(commandName, {
-            loaded: new Date(),
-            path: commandPath
-        });
+        // 4. Регистрируем новую команду
+        botInstance.command(commandName, newCommand);
         
-        return { success: true, module: newModule };
+        return { success: true };
         
     } catch (error) {
         return { success: false, error: error.message };
     }
-}
-
-function reloadAllCommands() {
-    const commandsDir = path.join(__dirname, '..', 'commands');
-    const files = fs.readdirSync(commandsDir);
-    const results = [];
-    
-    files.forEach(file => {
-        if (file.endsWith('.js') && file !== 'reload.js') {
-            const commandName = file.replace('.js', '');
-            const result = reloadCommand(commandName);
-            results.push({ command: commandName, success: result.success });
-        }
-    });
-    
-    return results;
 }
 
 module.exports = async (ctx) => {
@@ -80,85 +52,60 @@ module.exports = async (ctx) => {
         const args = ctx.message.text.split(' ').slice(1);
 
         if (ctx.from.id !== config.ADMIN_USER_ID) {
-            return await sendMessage(
-                ctx,
-                '❌ Эта команда доступна только администратору',
-                { parse_mode: 'HTML' }
-            );
+            return await sendMessage(ctx, '❌ Только для администратора', { parse_mode: 'HTML' });
         }
 
         if (!args.length) {
-            // Показываем список команд
-            const commandsDir = path.join(__dirname, '..', 'commands');
-            const files = fs.readdirSync(commandsDir);
-            const commandList = files
-                .filter(file => file.endsWith('.js') && file !== 'reload.js')
-                .map(file => file.replace('.js', ''))
-                .sort();
+            const commands = fs.readdirSync(path.join(__dirname, '..', 'commands'))
+                .filter(f => f.endsWith('.js') && f !== 'reload.js')
+                .map(f => f.replace('.js', ''));
             
             return await sendMessage(
                 ctx,
-                '<b>🔄 Горячая перезагрузка команд</b>\n\n' +
-                '<i>Использование:</i> <code>/reload commandName</code>\n\n' +
-                '<i>Доступные команды:</i>\n' +
-                commandList.map(cmd => `<code>${cmd}</code>`).join(', ') + '\n\n' +
-                '<code>all</code> - Все команды\n' +
-                '<code>list</code> - Список загруженных',
+                `<b>🔄 Динамическая перезагрузка</b>\n\n` +
+                `<i>Доступные команды:</i>\n` +
+                commands.map(c => `<code>${c}</code>`).join(', ') +
+                `\n\n<code>all</code> - Все команды`,
                 { parse_mode: 'HTML' }
             );
         }
 
-        const moduleName = args[0].toLowerCase();
-        let message = '';
-
-        await ctx.replyWithChatAction('typing');
-
-        if (moduleName === 'all') {
-            const results = reloadAllCommands();
-            const successful = results.filter(r => r.success).length;
-            const total = results.length;
+        const target = args[0].toLowerCase();
+        
+        if (target === 'all') {
+            // Лучше использовать PM2 для полной перезагрузки
+            const { exec } = require('child_process');
+            const { promisify } = require('util');
+            const execAsync = promisify(exec);
             
-            message = `<b>✅ Перезагружено ${successful}/${total} команд</b>\n\n`;
+            await execAsync('pm2 reload bot --silent', { timeout: 10000 });
             
-            results.forEach(result => {
-                message += `${result.success ? '✅' : '❌'} <code>${result.command}</code>\n`;
-            });
-            
-        } else if (moduleName === 'list') {
-            const loadedCommands = Array.from(moduleCache.keys());
-            message = `<b>📋 Загруженные команды</b>\n\n`;
-            
-            if (loadedCommands.length === 0) {
-                message += 'Нет информации о загруженных командах';
-            } else {
-                loadedCommands.forEach(cmd => {
-                    const info = moduleCache.get(cmd);
-                    message += `<code>${cmd}</code> - ${info.loaded.toLocaleTimeString()}\n`;
-                });
-            }
+            await sendMessage(
+                ctx,
+                '<b>✅ Бот перезагружен через PM2</b>\n\n' +
+                'Все команды обновлены',
+                { parse_mode: 'HTML' }
+            );
             
         } else {
-            const result = reloadCommand(moduleName);
-            
-            if (result.success) {
-                message = `<b>✅ Команда перезагружена</b>\n\n` +
-                         `<code>${moduleName}</code>\n` +
-                         `🕒 ${new Date().toLocaleString('ru-RU')}`;
-            } else {
-                message = `<b>❌ Ошибка перезагрузки</b>\n\n` +
-                         `<code>${moduleName}</code>\n` +
-                         `Ошибка: <code>${result.error}</code>`;
-            }
+            await sendMessage(
+                ctx,
+                '<b>⚠️ Динамическая перезагрузка отдельных команд</b>\n\n' +
+                'В текущей версии для обновления кода команд необходимо:\n' +
+                '• Использовать <code>/reload all</code> (PM2 reload)\n' +
+                '• Или перезапустить бота вручную\n\n' +
+                'Динамическая перезагрузка на лету сложна из-за ограничений Node.js',
+                { parse_mode: 'HTML' }
+            );
         }
-
-        await sendMessage(ctx, message, { parse_mode: 'HTML' });
 
     } catch (error) {
         await sendMessage(
             ctx,
-            `❌ Ошибка перезагрузки\n\n` +
-            `<code>${error.message}</code>`,
+            `❌ Ошибка: ${error.message}`,
             { parse_mode: 'HTML' }
         );
     }
 };
+
+module.exports.setBotInstance = setBotInstance;
