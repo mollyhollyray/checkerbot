@@ -90,6 +90,124 @@ bot.action(/^help_branches/, async (ctx) => {
   }
 });
 
+bot.action(/^prview_(.+)_(.+)_(\d+)$/, async (ctx) => {
+  try {
+    const [_, owner, repo, prNumber] = ctx.match;
+    const repoKey = `${owner}/${repo}`;
+    
+    ctx.message = {
+      text: `/prview ${repoKey} ${prNumber}`,
+      chat: ctx.callbackQuery.message.chat
+    };
+    
+    const prviewCmd = require('./commands/prview');
+    await prviewCmd(ctx);
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('PR View callback error:', error);
+    await ctx.answerCbQuery('❌ Ошибка загрузки PR');
+  }
+});
+
+bot.action(/^quick_last_(.+)_(.+)_(\d+)$/, async (ctx) => {
+  try {
+    const [_, owner, repo, count] = ctx.match;
+    ctx.message = {
+      text: `/last ${owner}/${repo} ${count}`,
+      chat: ctx.callbackQuery.message.chat
+    };
+    const lastCmd = require('./commands/last');
+    await lastCmd(ctx);
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('Quick last callback error:', error);
+    await ctx.answerCbQuery('❌ Ошибка загрузки коммитов');
+  }
+});
+
+bot.action(/^quick_branches_(.+)_(.+)_(\d+)$/, async (ctx) => {
+  try {
+    const [_, owner, repo, limit] = ctx.match;
+    ctx.message = {
+      text: `/branches ${owner}/${repo} ${limit}`,
+      chat: ctx.callbackQuery.message.chat
+    };
+    const branchesCmd = require('./commands/branches');
+    await branchesCmd(ctx);
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('Quick branches callback error:', error);
+    await ctx.answerCbQuery('❌ Ошибка загрузки веток');
+  }
+});
+
+bot.action(/^quick_pr_(.+)_(.+)_(\d+)_(.+)$/, async (ctx) => {
+  try {
+    const [_, owner, repo, limit, state] = ctx.match;
+    ctx.message = {
+      text: `/pr ${owner}/${repo} ${state} ${limit}`,
+      chat: ctx.callbackQuery.message.chat
+    };
+    const prCmd = require('./commands/pr');
+    await prCmd(ctx);
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('Quick PR callback error:', error);
+    await ctx.answerCbQuery('❌ Ошибка загрузки PR');
+  }
+});
+
+// Подтверждение удаления из уведомления
+bot.action(/^confirm_remove_(.+)$/, async (ctx) => {
+  const repoKey = ctx.match[1];
+  
+  await ctx.editMessageText(
+    `⚠️ <b>Подтвердите удаление репозитория</b>\n\n` +
+    `<code>${escapeHtml(repoKey)}</code>\n\n` +
+    `Это действие нельзя отменить. Удалить репозиторий?`,
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { 
+              text: "✅ Да, удалить навсегда", 
+              callback_data: `final_remove_${repoKey}`
+            },
+            { 
+              text: "❌ Отмена", 
+              callback_data: "cancel_remove"
+            }
+          ]
+        ]
+      }
+    }
+  );
+  await ctx.answerCbQuery();
+});
+
+// Финальное удаление
+bot.action(/^final_remove_(.+)$/, async (ctx) => {
+  const repoKey = ctx.match[1];
+  const [owner, repo] = repoKey.split('/');
+  
+  if (storage.removeRepo(owner, repo)) {
+    await ctx.editMessageText(
+      `✅ <b>Репозиторий удалён из отслеживания!</b>\n\n` +
+      `<code>${escapeHtml(repoKey)}</code>\n` +
+      `🕒 ${new Date().toLocaleString('ru-RU')}`,
+      { parse_mode: 'HTML' }
+    );
+  } else {
+    await ctx.answerCbQuery('❌ Ошибка при удалении');
+  }
+});
+
+bot.action('cancel_remove', async (ctx) => {
+  await ctx.deleteMessage();
+  await ctx.answerCbQuery('Удаление отменено');
+});
+
 bot.action(/^show_help_/, async (ctx) => {
   const command = ctx.callbackQuery.data.replace('show_help_', '');
   const help = require('./commands/help');
