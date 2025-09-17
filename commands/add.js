@@ -3,7 +3,6 @@ const config = require('../config');
 const storage = require('../service/storage');
 const { log, logError } = require('../utils/logger');
 const { sendMessage, escapeHtml } = require('../utils/message');
-const config = require('../config');
 
 function isValidRepoFormat(repoInput) {
     return repoInput && 
