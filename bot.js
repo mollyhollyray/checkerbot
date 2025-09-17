@@ -24,26 +24,6 @@ Object.entries(commands).forEach(([name, handler]) => {
   console.log(`[INFO] Команда загружена: /${name}`);
 });
 
-bot.action(/^confirm_remove_([a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+)$/, async (ctx) => {
-  const repoKey = ctx.match[1];
-  const [owner, repo] = repoKey.split('/');
-  
-  if (storage.removeRepo(owner, repo)) {
-    await ctx.editMessageText(
-      `✅ <b>Репозиторий удалён из отслеживания!</b>\n\n` +
-      `<code>${escapeHtml(repoKey)}</code>\n` +
-      `🕒 ${new Date().toLocaleString('ru-RU')}`,
-      { parse_mode: 'HTML' }
-    );
-  } else {
-    await ctx.answerCbQuery('❌ Ошибка при удалении');
-  }
-  if (!storage.repoExists(owner, repo)) {
-    await ctx.answerCbQuery('❌ Репозиторий уже удален');
-    return;
-  }
-});
-
 bot.action(/^help_/, async (ctx) => {
   try {
     const action = ctx.callbackQuery.data.replace('help_', '');
