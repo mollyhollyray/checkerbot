@@ -1,10 +1,27 @@
-const { Telegraf } = require('telegraf'); 
+const { Telegraf } = require('telegraf');
 const cron = require('node-cron');
 const config = require('./config');
 const checker = require('./service/checker');
 const storage = require('./service/storage');
+const network = require('./utils/network');
+const { logError } = require('./utils/logger');
 
-const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
+// Конфигурация Telegraf с таймаутами
+const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN, {
+  telegram: {
+    agent: null,
+    attachmentAgent: null,
+    webhookReply: false,
+    testEnvironment: false,
+    timeout: 30000, // 30 секунд таймаут
+    apiMode: 'bot',
+    apiRoot: 'https://api.telegram.org',
+    apiRetries: 3,
+    apiTimeout: 30000,
+    retryAfter: 2,
+    handlerTimeout: 90000
+  }
+});
 
 const commands = {
   add: require('./commands/add'),
@@ -16,32 +33,13 @@ const commands = {
   list: require('./commands/list'),
   pr: require('./commands/pr'),
   prview: require('./commands/prview'),
-  remove: require('./commands/remove')
+  remove: require('./commands/remove'),
+  status: require('./commands/status')
 };
 
 Object.entries(commands).forEach(([name, handler]) => {
   bot.command(name, handler);
   console.log(`[INFO] Команда загружена: /${name}`);
-});
-
-bot.action(/^confirm_remove_([a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+)$/, async (ctx) => {
-  const repoKey = ctx.match[1];
-  const [owner, repo] = repoKey.split('/');
-  
-  if (storage.removeRepo(owner, repo)) {
-    await ctx.editMessageText(
-      `✅ <b>Репозиторий удалён из отслеживания!</b>\n\n` +
-      `<code>${escapeHtml(repoKey)}</code>\n` +
-      `🕒 ${new Date().toLocaleString('ru-RU')}`,
-      { parse_mode: 'HTML' }
-    );
-  } else {
-    await ctx.answerCbQuery('❌ Ошибка при удалении');
-  }
-  if (!storage.repoExists(owner, repo)) {
-    await ctx.answerCbQuery('❌ Репозиторий уже удален');
-    return;
-  }
 });
 
 bot.action(/^help_/, async (ctx) => {
@@ -220,53 +218,82 @@ bot.action(/^quick_pr_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)_([a-zA-Z]+)$/, asy
 
 // Подтверждение удаления из уведомления
 bot.action(/^confirm_remove_(.+)$/, async (ctx) => {
-  const repoKey = ctx.match[1];
-  
-  await ctx.editMessageText(
-    `⚠️ <b>Подтвердите удаление репозитория</b>\n\n` +
-    `<code>${escapeHtml(repoKey)}</code>\n\n` +
-    `Это действие нельзя отменить. Удалить репозиторий?`,
-    {
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { 
-              text: "✅ Да, удалить навсегда", 
-              callback_data: `final_remove_${repoKey}`
-            },
-            { 
-              text: "❌ Отмена", 
-              callback_data: "cancel_remove"
-            }
-          ]
-        ]
-      }
+  try {
+    const repoKey = ctx.match[1];
+    const [owner, repo] = repoKey.split('/');
+    
+    if (!storage.repoExists(owner, repo)) {
+      await ctx.answerCbQuery('❌ Репозиторий уже удален');
+      return;
     }
-  );
-  await ctx.answerCbQuery();
+
+    await ctx.editMessageText(
+      `⚠️ <b>Подтвердите удаление репозитория</b>\n\n` +
+      `<code>${escapeHtml(repoKey)}</code>\n\n` +
+      `Это действие нельзя отменить. Удалить репозиторий?`,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { 
+                text: "✅ Да, удалить навсегда", 
+                callback_data: `final_remove_${repoKey}`
+              },
+              { 
+                text: "❌ Отмена", 
+                callback_data: "cancel_remove"
+              }
+            ]
+          ]
+        }
+      }
+    );
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('Confirm remove error:', error);
+    await ctx.answerCbQuery('❌ Ошибка подтверждения');
+  }
 });
 
 // Финальное удаление
 bot.action(/^final_remove_(.+)$/, async (ctx) => {
-  const repoKey = ctx.match[1];
-  const [owner, repo] = repoKey.split('/');
-  
-  if (storage.removeRepo(owner, repo)) {
-    await ctx.editMessageText(
-      `✅ <b>Репозиторий удалён из отслеживания!</b>\n\n` +
-      `<code>${escapeHtml(repoKey)}</code>\n` +
-      `🕒 ${new Date().toLocaleString('ru-RU')}`,
-      { parse_mode: 'HTML' }
-    );
-  } else {
+  try {
+    const repoKey = ctx.match[1];
+    const [owner, repo] = repoKey.split('/');
+    
+    if (!storage.repoExists(owner, repo)) {
+      await ctx.answerCbQuery('❌ Репозиторий уже удален');
+      return;
+    }
+
+    if (storage.removeRepo(owner, repo)) {
+      await ctx.editMessageText(
+        `✅ <b>Репозиторий удалён из отслеживания!</b>\n\n` +
+        `<code>${escapeHtml(repoKey)}</code>\n` +
+        `🕒 ${new Date().toLocaleString('ru-RU')}`,
+        { parse_mode: 'HTML' }
+      );
+      
+      // Логируем удаление через кнопку
+      console.log(`[INFO] Репозиторий удален через кнопку: ${repoKey}`);
+    } else {
+      await ctx.answerCbQuery('❌ Ошибка при удалении');
+    }
+  } catch (error) {
+    console.error('Final remove error:', error);
     await ctx.answerCbQuery('❌ Ошибка при удалении');
   }
 });
 
 bot.action('cancel_remove', async (ctx) => {
-  await ctx.deleteMessage();
-  await ctx.answerCbQuery('Удаление отменено');
+  try {
+    await ctx.deleteMessage();
+    await ctx.answerCbQuery('Удаление отменено');
+  } catch (error) {
+    console.error('Cancel remove error:', error);
+    await ctx.answerCbQuery('❌ Ошибка отмены');
+  }
 });
 
 bot.action(/^show_help_/, async (ctx) => {
@@ -296,10 +323,49 @@ cron.schedule(`*/${config.CHECK_INTERVAL_MINUTES} * * * *`, async () => {
 bot.catch((error) => {
   console.error('[ERROR] Ошибка в боте:', error);
 });
+async function startBot() {
+  try {
+    await network.withRetry(async () => {
+      await bot.launch();
+      console.log('[INFO] Бот успешно запущен');
+      storage.initStorage();
+    }, 'bot_launch');
+    
+  } catch (error) {
+    if (network.isNetworkError(error)) {
+      logError('Критическая ошибка сети при запуске бота', error, {
+        type: 'network',
+        code: error.code,
+        address: 'api.telegram.org'
+      });
+      
+      console.error('[FATAL] Не удалось подключиться к Telegram API');
+      console.error('[FATAL] Проверьте интернет-соединение и настройки сети');
+      process.exit(1);
+    } else {
+      logError('Критическая ошибка при запуске бота', error);
+      process.exit(1);
+    }
+  }
+}
 
-bot.launch().then(() => {
-  console.log('[INFO] Бот успешно запущен');
-  storage.initStorage();
+startBot();
+
+bot.catch(async (error) => {
+  if (network.isNetworkError(error)) {
+    logError('Сетевая ошибка в боте', error, {
+      type: 'network',
+      code: error.code
+    });
+    
+    // Попробуем переподключиться
+    setTimeout(() => {
+      console.log('[INFO] Попытка переподключения после сетевой ошибки...');
+      startBot();
+    }, 5000);
+  } else {
+    logError('Ошибка в боте', error);
+  }
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));

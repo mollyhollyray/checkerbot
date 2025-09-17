@@ -44,19 +44,20 @@ module.exports = async (ctx) => {
       );
     }
 
+    // Используем ту же систему подтверждения, что и для кнопок
     await sendMessage(
       ctx,
       `⚠️ <b>Подтвердите удаление репозитория</b>\n\n` +
       `<code>${escapeHtml(repoKey)}</code>\n\n` +
-      `Будут удалены все данные отслеживания.`,
+      `Это действие нельзя отменить. Удалить репозиторий?`,
       {
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [
               { 
-                text: "✅ Да, удалить", 
-                callback_data: `confirm_remove_${repoKey}`
+                text: "✅ Да, удалить навсегда", 
+                callback_data: `final_remove_${repoKey}`
               },
               { 
                 text: "❌ Отмена", 
