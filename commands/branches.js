@@ -1,6 +1,6 @@
 const { fetchRepoBranches, getBranchLastCommit, getDefaultBranch, getTotalBranchesCount, checkBranchExists } = require('../service/github');
 const { sendMessage, sendLongMessage, escapeHtml } = require('../utils/message');
-const { log, logError } = require('../utils/logger');
+const logger = require('../utils/logger');
 const storage = require('../service/storage');
 const NodeCache = require('node-cache');
 
@@ -116,7 +116,7 @@ module.exports = async (ctx) => {
         if (ctx.callbackQuery) await ctx.answerCbQuery();
 
     } catch (error) {
-        logError(error, `Branches command failed: ${error.message}`);
+        logger.logError(error, `Branches command failed: ${error.message}`);
         
         const errorMsg = error.response?.status === 404
             ? 'Репозиторий не найден'

@@ -1,7 +1,7 @@
 const axios = require('axios');
 const config = require('../config');
-const { log, logError } = require('../utils/logger');
 const { sendMessage, sendLongMessage, escapeHtml } = require('../utils/message');
+const { logError } = require('../utils/logger');
 
 async function getPRDetails(owner, repo, prNumber) {
   try {
@@ -69,11 +69,20 @@ ${pr.state === 'open' ? '🟢 Открыт' : pr.merged ? '🟣 Слит' : '�
 `;
 
   if (checks.total_count > 0) {
-    message += `\n✅ <b>Проверки CI:</b> `;
-    message += checks.check_runs.map(r => {
-      const status = r.conclusion === 'success' ? '🟢' : r.conclusion === 'failure' ? '🔴' : '🟡';
-      return `${status} ${r.name}`;
-    }).join('\n• ');
+    message += `\n\n✅ <b>Проверки CI:</b>\n<pre>`;
+    const uniqueChecks = [];
+    const checkNames = new Set();
+    
+    checks.check_runs.forEach(r => {
+      if (!checkNames.has(r.name)) {
+        checkNames.add(r.name);
+        const status = r.conclusion === 'success' ? '🟢' : 
+                      r.conclusion === 'failure' ? '🔴' : '🟡';
+        uniqueChecks.push(`${status} ${r.name}`);
+      }
+    });
+    
+    message += uniqueChecks.join('\n') + `</pre>`;
   }
 
   if (pr.labels?.length > 0) {
@@ -82,15 +91,22 @@ ${pr.state === 'open' ? '🟢 Открыт' : pr.merged ? '🟣 Слит' : '�
   }
 
   if (pr.assignees?.length > 0) {
-    message += `\n👥 <b>Назначено:</b> `;
+    message += `\n\n👥 <b>Назначено:</b> `;
     message += pr.assignees.map(a => 
       `<a href="${a.html_url}">@${escapeHtml(a.login)}</a>`
     ).join(', ');
   }
 
   if (pr.body) {
-    const description = escapeHtml(pr.body.substring(0, 500));
-    message += `\n\n📝 <b>Описание:</b>\n<pre>${description}${pr.body.length > 500 ? '...' : ''}</pre>`;
+    const description = pr.body
+      .replace(/```/g, '')
+      .replace(/^#+\s*/gm, '')
+      .replace(/\[(.*?)\]\((.*?)\)/g, '$1: $2')
+      .replace(/\n{3,}/g, '\n\n');
+    
+    message += `\n\n📝 <b>Описание:</b>\n<pre>${escapeHtml(description.substring(0, 500))}`;
+    message += pr.body.length > 500 ? '...' : '';
+    message += `</pre>`;
   }
 
   message += `\n\n📂 <a href="${pr.html_url}/files">Просмотреть изменения</a>`;
@@ -105,10 +121,10 @@ module.exports = async (ctx) => {
     if (args.length < 2) {
       return await sendMessage(
         ctx,
-        `<b>❌ Неверный формат команды</b>\n\n` +
-        `<i>Использование:</i> <code>/prview &lt;owner/repo&gt; &lt;PR_number&gt;</code>\n\n` +
-        `<i>Пример:</i>\n` +
-        `<code>/prview facebook/react 123</code>`,
+        '<b>❌ Неверный формат команды</b>\n\n' +
+        '<i>Использование:</i> <code>/prview &lt;owner/repo&gt; &lt;PR_number&gt;</code>\n\n' +
+        '<i>Пример:</i>\n' +
+        '<code>/prview facebook/react 123</code>',
         { parse_mode: 'HTML' }
       );
     }
@@ -119,9 +135,9 @@ module.exports = async (ctx) => {
     if (!repoIdentifier.includes('/')) {
       return await sendMessage(
         ctx,
-        `<b>❌ Неверный формат репозитория</b>\n\n` +
-        `<i>Формат:</i> <code>&lt;owner&gt;/&lt;repo&gt;</code>\n` +
-        `<i>Пример:</i> <code>facebook/react</code>`,
+        '<b>❌ Неверный формат репозитория</b>\n\n' +
+        '<i>Формат:</i> <code>&lt;owner&gt;/&lt;repo&gt;</code>\n' +
+        '<i>Пример:</i> <code>facebook/react</code>',
         { parse_mode: 'HTML' }
       );
     }
@@ -129,8 +145,8 @@ module.exports = async (ctx) => {
     if (isNaN(prNumber)) {
       return await sendMessage(
         ctx,
-        `<b>❌ Неверный номер PR</b>\n\n` +
-        `Номер PR должен быть числом`,
+        '<b>❌ Неверный номер PR</b>\n\n' +
+        'Номер PR должен быть числом',
         { parse_mode: 'HTML' }
       );
     }
@@ -147,14 +163,14 @@ module.exports = async (ctx) => {
     });
 
   } catch (error) {
-    let errorMessage = `<b>❌ Ошибка при получении PR</b>`;
+    let errorMessage = '<b>❌ Ошибка при получении PR</b>';
     
     if (error.response) {
       if (error.response.status === 404) {
-        errorMessage += `\n\n<i>Проверьте:</i>\n` +
-                       `• Существование репозитория\n` +
-                       `• Существование PR\n` +
-                       `• Ваши права доступа`;
+        errorMessage += '\n\n<i>Проверьте:</i>\n' +
+                       '• Существование репозитория\n' +
+                       '• Существование PR\n' +
+                       '• Ваши права доступа';
       } else {
         errorMessage += `\n\n<code>Код ошибки: ${error.response.status}</code>`;
       }
@@ -169,8 +185,8 @@ module.exports = async (ctx) => {
         parse_mode: 'HTML',
         disable_web_page_preview: true 
       }
-    ).catch(e => logError(e));
+    );
     
-    logError(error, `PR command failed: ${error.message}`);
+    logger.logError(error, `PR View command failed: ${error.message}`);
   }
 };

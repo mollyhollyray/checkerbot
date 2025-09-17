@@ -1,4 +1,4 @@
-const { logError } = require('./logger');
+const logger = require('./logger');
 const config = require('../config');
 const { Telegraf } = require('telegraf');
 
@@ -32,7 +32,7 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   }
 
   if (!bot || !chatId) {
-    logError('Не указан бот или chatId');
+    logger.error('Не указан бот или chatId'); // Исправлено: errorr -> error
     return false;
   }
 
@@ -45,7 +45,7 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   }
 
   const {
-    parse_mode = 'MarkdownV2',
+    parse_mode = 'HTML', // Изменено по умолчанию на HTML
     disable_web_page_preview = true,
     retryCount = 2,
     ...otherOptions
@@ -54,6 +54,7 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   try {
     let formattedText = text;
     
+    // Применяем экранирование только для Markdown
     if (parse_mode === 'MarkdownV2') {
       formattedText = escapeMarkdown(text);
     }
@@ -65,7 +66,7 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
     });
     return true;
   } catch (error) {
-    logError(`Ошибка отправки сообщения: ${error.message}`);
+    logger.error(`Ошибка отправки сообщения: ${error.message}`);
     
     if (error.message.includes('can\'t parse entities') && parse_mode !== 'HTML') {
       return sendMessage(bot, chatId, text, {
@@ -90,11 +91,8 @@ async function sendLongMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   const MAX_LENGTH = 4000;
   let text;
   
-  if (typeof chatIdOrText === 'string') {
-    text = chatIdOrText;
-  } else {
-    text = chatIdOrText;
-  }
+  // Упрощенное получение текста
+  text = typeof chatIdOrText === 'string' ? chatIdOrText : textOrOptions;
 
   if (typeof text !== 'string') {
     text = String(text);
@@ -107,7 +105,10 @@ async function sendLongMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   }
   
   for (const chunk of chunks) {
-    await sendMessage(ctxOrBot, chatIdOrText, chunk, textOrOptions || options);
+    await sendMessage(ctxOrBot, chatIdOrText, chunk, {
+      ...(typeof textOrOptions === 'object' ? textOrOptions : {}),
+      ...(options || {})
+    });
     if (chunks.length > 1) {
       await new Promise(resolve => setTimeout(resolve, 300));
     }

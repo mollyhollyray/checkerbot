@@ -1,6 +1,6 @@
 const axios = require('axios');
 const { sendMessage, escapeMarkdown } = require('../utils/message');
-const { log, logError } = require('../utils/logger');
+const logger = require('../utils/logger');
 const config = require('../config');
 const NodeCache = require('node-cache');
 
@@ -118,7 +118,7 @@ module.exports = async (ctx) => {
         }
 
     } catch (error) {
-        logError(error, `PR Error: ${repoKey}`);
+        logger.error(`PR Error: ${repoKey}`, error);
         const errorMsg = error.response?.status === 404
             ? `Репозиторий \`${repoKey}\` не найден`
             : error.response?.status === 403
