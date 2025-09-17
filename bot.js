@@ -3,6 +3,9 @@ const cron = require('node-cron');
 const config = require('./config');
 const checker = require('./service/checker');
 const storage = require('./service/storage');
+const chokidar = require('chokidar');
+const path = require('path');
+const { log } = require('./utils/logger');
 
 const bot = new Telegraf(config.TELEGRAM_BOT_TOKEN);
 
@@ -16,13 +19,45 @@ const commands = {
   list: require('./commands/list'),
   pr: require('./commands/pr'),
   prview: require('./commands/prview'),
-  remove: require('./commands/remove')
+  remove: require('./commands/remove'),
+  pm2: require('./commands/pm2'),
+  reload: require('./commands/reload'),
 };
 
 Object.entries(commands).forEach(([name, handler]) => {
   bot.command(name, handler);
   console.log(`[INFO] Команда загружена: /${name}`);
 });
+
+function setupFileWatcher() {
+    if (process.env.NODE_ENV === 'development') {
+        const watcher = chokidar.watch('./commands/*.js', {
+            ignored: /(^|[\/\\])\../, // ignore dotfiles
+            persistent: true
+        });
+
+        watcher.on('change', (filePath) => {
+            const fileName = path.basename(filePath, '.js');
+            log(`Обнаружено изменение файла: ${fileName}`, 'info');
+            
+            // Автоматическая перезагрузка команды
+            try {
+                const commandPath = `./commands/${fileName}`;
+                delete require.cache[require.resolve(commandPath)];
+                
+                // Обновляем команду в боте
+                const newCommand = require(commandPath);
+                commands[fileName] = newCommand;
+                
+                log(`Команда ${fileName} перезагружена автоматически`, 'info');
+            } catch (error) {
+                logError(`Ошибка автоматической перезагрузки ${fileName}`, error);
+            }
+        });
+
+        log('File watcher started for commands', 'info');
+    }
+}
 
 bot.action(/^help_/, async (ctx) => {
   try {
@@ -50,7 +85,77 @@ bot.action(/^help_/, async (ctx) => {
     console.error('Help callback error:', error);
     await ctx.answerCbQuery('❌ Ошибка выполнения команды');
   }
+});bot.action(/^help_/, async (ctx) => {
+  try {
+    const action = ctx.callbackQuery.data.replace('help_', '');
+    const commandMap = {
+      list: '/list',
+      check: '/check',
+      branches: '/branches combatextended-continued/combatextended',
+      pr: '/pr',
+      limits: '/limits',
+      status: '/status',
+      pm2: '/pm2',
+      reload: '/reload',
+      add: '/add'
+    };
+    
+    if (commandMap[action]) {
+      const fakeContext = {
+        ...ctx,
+        message: {
+          text: commandMap[action],
+          chat: ctx.callbackQuery.message.chat,
+          from: ctx.callbackQuery.from
+        },
+        bot: ctx.bot
+      };
+      
+      const cmd = require(`./commands/${action}`);
+      await cmd(fakeContext);
+    }
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('Help callback error:', error);
+    await ctx.answerCbQuery('❌ Ошибка выполнения команды');
+  }
 });
+
+// Добавляем отдельные обработчики для новых команд
+bot.action('help_pm2', async (ctx) => {
+  try {
+    ctx.message = {
+      text: '/help pm2',
+      chat: ctx.callbackQuery.message.chat,
+      from: ctx.callbackQuery.from
+    };
+    
+    const helpCmd = require('./commands/help');
+    await helpCmd(ctx);
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('Help pm2 callback error:', error);
+    await ctx.answerCbQuery('❌ Ошибка загрузки справки');
+  }
+});
+
+bot.action('help_reload', async (ctx) => {
+  try {
+    ctx.message = {
+      text: '/help reload',
+      chat: ctx.callbackQuery.message.chat,
+      from: ctx.callbackQuery.from
+    };
+    
+    const helpCmd = require('./commands/help');
+    await helpCmd(ctx);
+    await ctx.answerCbQuery();
+  } catch (error) {
+    console.error('Help reload callback error:', error);
+    await ctx.answerCbQuery('❌ Ошибка загрузки справки');
+  }
+});
+
 
 bot.action(/^help_branches/, async (ctx) => {
   try {
@@ -279,8 +384,9 @@ bot.catch((error) => {
 });
 
 bot.launch().then(() => {
-  console.log('[INFO] Бот успешно запущен');
-  storage.initStorage();
+    console.log('[INFO] Бот успешно запущен');
+    storage.initStorage();
+    setupFileWatcher();
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));

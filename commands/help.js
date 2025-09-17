@@ -1,5 +1,5 @@
 const { sendMessage } = require('../utils/message');
-const { log } = require('../utils/logger');
+const { log, logError } = require('../utils/logger');
 
 const COMMAND_HELP = {
   main: `🌸 *GitHub Tracker Bot* 🌸 *Help Center*
@@ -28,6 +28,9 @@ const COMMAND_HELP = {
 ⚙️ *Системные команды:*
 ┌───────────────────────────────
 │  📊 /limits - Лимиты API
+│  🩺 /status - Статус системы
+│  🔧 /pm2 - Управление процессами
+│  🔄 /reload - Горячая перезагрузка
 │  ❓ /help - Эта справка
 └───────────────────────────────
 ━━━━━━━━━━━━━━━━━━
@@ -158,6 +161,19 @@ const COMMAND_HELP = {
 • Оставшиеся запросы
 • Время до сброса`,
 
+  status: `✨ *Команда /status* ✨
+━━━━━━━━━━━━━━━━━━
+Показывает текущий статус системы
+
+📌 *Формат:*
+\`/status\`
+
+📌 *Отображает:*
+• Статус Telegram API
+• Статус GitHub API 
+• Время последней проверки
+• Информацию о сетевых проблемах`,
+
   check: `✨ *Команда /check* ✨
 ━━━━━━━━━━━━━━━━━━
 Ручная проверка обновлений
@@ -168,7 +184,45 @@ const COMMAND_HELP = {
 📌 *Особенности:*
 • Проверяет все репозитории
 • Показывает новые коммиты
-• Работает параллельно с авто-проверкой`
+• Работает параллельно с авто-проверкой`,
+
+  pm2: `✨ *Команда /pm2* ✨
+━━━━━━━━━━━━━━━━━━
+Управление процессами PM2
+
+📌 *Формат:*
+\`/pm2 [command]\`
+
+📌 *Команды:*
+• <code>restart</code> - Перезапустить бота
+• <code>reload</code> - Graceful reload
+• <code>stop</code> - Остановить бота  
+• <code>start</code> - Запустить бота
+• <code>status</code> - Статус процессов
+• <code>logs</code> - Показать логи
+• <code>update</code> - Обновить и перезапустить
+
+⚠️ <b>Только для администратора</b>`,
+
+  reload: `✨ *Команда /reload* ✨
+━━━━━━━━━━━━━━━━━━
+Горячая перезагрузка команд
+
+📌 *Формат:*
+\`/reload [commandName]\`
+
+📌 *Команды:*
+• <code>add</code> - Перезагрузить команду add
+• <code>branches</code> - Перезагрузить команду branches
+• <code>all</code> - Все команды
+• <code>list</code> - Список загруженных
+
+📌 *Особенности:*
+• Перезагружает команды без перезапуска бота
+• Работает в реальном времени
+• Сохраняет состояние бота
+
+⚠️ <b>Только для администратора</b>`
 };
 
 module.exports = async (ctx) => {
@@ -179,28 +233,48 @@ module.exports = async (ctx) => {
       ? COMMAND_HELP[command.toLowerCase()] || COMMAND_HELP.main
       : COMMAND_HELP.main;
 
-const buttons = [
-  [
-    { 
-      text: "📋 Список", 
-      callback_data: "help_list" 
-    },
-    { 
-      text: "🔄 Проверить", 
-      callback_data: "help_check" 
-    }
-  ],
-  [
-  { 
-    text: "🌿 Ветки", 
-    callback_data: "help_branches" 
-  },
-    { 
-      text: "🔄 PR", 
-      callback_data: "help_pr" 
-    }
-  ]
-];
+    const buttons = [
+      [
+        { 
+          text: "📋 Список", 
+          callback_data: "help_list" 
+        },
+        { 
+          text: "🔄 Проверить", 
+          callback_data: "help_check" 
+        }
+      ],
+      [
+        { 
+          text: "🌿 Ветки", 
+          callback_data: "help_branches" 
+        },
+        { 
+          text: "🔄 PR", 
+          callback_data: "help_pr" 
+        }
+      ],
+      [
+        { 
+          text: "🩺 Статус", 
+          callback_data: "help_status" 
+        },
+        { 
+          text: "📊 Лимиты", 
+          callback_data: "help_limits" 
+        }
+      ],
+      [
+        { 
+          text: "🔧 PM2", 
+          callback_data: "help_pm2" 
+        },
+        { 
+          text: "🔄 Reload", 
+          callback_data: "help_reload" 
+        }
+      ]
+    ];
 
     await sendMessage(ctx, helpText, { 
       parse_mode: 'MarkdownV2',
