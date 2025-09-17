@@ -227,6 +227,7 @@ bot.action(/^confirm_remove_(.+)$/, async (ctx) => {
   await ctx.answerCbQuery();
 });
 
+
 // Финальное удаление
 bot.action(/^final_remove_(.+)$/, async (ctx) => {
   const repoKey = ctx.match[1];
