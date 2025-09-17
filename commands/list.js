@@ -21,6 +21,35 @@ function getRepoWord(count) {
     ];
 }
 
+// Функция для форматирования времени активности
+function formatTimeAgo(timestamp) {
+    if (!timestamp) return 'никогда';
+    
+    const diffMs = Date.now() - timestamp;
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = Math.floor(diffDays / 30);
+    
+    if (diffMonths > 0) {
+        return `${diffMonths} мес. назад`;
+    } else if (diffWeeks > 0) {
+        return `${diffWeeks} нед. назад`;
+    } else if (diffDays > 0) {
+        return `${diffDays} дн. назад`;
+    } else if (diffHours > 0) {
+        return `${diffHours} час. назад`;
+    } else if (diffMinutes > 0) {
+        return `${diffMinutes} мин. назад`;
+    } else if (diffSeconds > 0) {
+        return `${diffSeconds} сек. назад`;
+    } else {
+        return 'только что';
+    }
+}
+
 module.exports = async (ctx) => {
     try {
         const args = ctx.message.text.split(' ').slice(1);
@@ -42,7 +71,6 @@ module.exports = async (ctx) => {
             );
         }
 
-        // Получаем ID сообщения для редактирования (если есть)
         const messageId = ctx.message?.message_id;
 
         switch (mode) {
@@ -90,9 +118,6 @@ async function showMainList(ctx, allRepos, trackedOwners, page, editMessageId = 
 
     reposToShow.forEach(([repoKey, repoData]) => {
         const [owner, repo] = repoKey.split('/');
-        const daysAgo = repoData.lastCommitTime 
-            ? Math.floor((Date.now() - repoData.lastCommitTime) / (1000 * 60 * 60 * 24))
-            : '∞';
         
         const emoji = repoData.trackedIndividually ? '🔸' : '🔹';
         
@@ -100,7 +125,7 @@ async function showMainList(ctx, allRepos, trackedOwners, page, editMessageId = 
         message += `   🌿 Ветка: ${repoData.branch}\n`;
         message += `   🆔 Коммит: ${repoData.lastCommitSha?.slice(0, 7) || '----'}\n`;
         message += `   📅 Добавлен: ${formatDate(repoData.addedAt)}\n`;
-        message += `   ⏱ Активность: ${daysAgo} назад\n\n`;
+        message += `   ⏱ Активность: ${formatTimeAgo(repoData.lastCommitTime)}\n\n`;
         
         message += `   /last ${repoKey} ${repoData.branch} 3\n`;
         message += '━━━━━━━━━━━━━━━━━━\n';
@@ -146,7 +171,6 @@ async function showMainList(ctx, allRepos, trackedOwners, page, editMessageId = 
             });
             await ctx.answerCbQuery();
         } catch (error) {
-            // Если редактирование не удалось, отправляем новое сообщение
             await sendMessage(ctx, message, {
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
@@ -182,15 +206,12 @@ async function showOwnerRepos(ctx, owner, page, editMessageId = null) {
 
     reposToShow.forEach(([repoKey, repoData]) => {
         const [_, repo] = repoKey.split('/');
-        const daysAgo = repoData.lastCommitTime 
-            ? Math.floor((Date.now() - repoData.lastCommitTime) / (1000 * 60 * 60 * 24))
-            : '∞';
         
         message += `📦 <b>${repo}</b>\n`;
         message += `   🌿 Ветка: ${repoData.branch}\n`;
         message += `   🆔 Коммит: ${repoData.lastCommitSha?.slice(0, 7) || '----'}\n`;
         message += `   📅 Добавлен: ${formatDate(repoData.addedAt)}\n`;
-        message += `   ⏱ Активность: ${daysAgo} назад\n\n`;
+        message += `   ⏱ Активность: ${formatTimeAgo(repoData.lastCommitTime)}\n\n`;
         
         message += `   /last ${repoKey} ${repoData.branch} 3\n`;
         message += '━━━━━━━━━━━━━━━━━━\n';
@@ -322,6 +343,21 @@ async function showStats(ctx, allRepos, trackedOwners, editMessageId = null) {
     const individualRepos = allRepos.filter(([_, repo]) => repo.trackedIndividually);
     const autoRepos = allRepos.filter(([_, repo]) => !repo.trackedIndividually);
     
+    const now = Date.now();
+    const activeRepos = allRepos.filter(([_, repo]) => {
+        if (!repo.lastCommitTime) return false;
+        const diffDays = (now - repo.lastCommitTime) / (1000 * 60 * 60 * 24);
+        return diffDays <= 7;
+    }).length;
+
+    const recentRepos = allRepos.filter(([_, repo]) => {
+        if (!repo.lastCommitTime) return false;
+        const diffDays = (now - repo.lastCommitTime) / (1000 * 60 * 60 * 24);
+        return diffDays <= 30;
+    }).length;
+
+    const inactiveRepos = allRepos.length - recentRepos;
+
     let message = '📊 <b>Детальная статистика отслеживания</b>\n';
     message += '━━━━━━━━━━━━━━━━━━\n\n';
     message += `📦 Всего репозиториев: ${allRepos.length}\n`;
@@ -348,13 +384,11 @@ async function showStats(ctx, allRepos, trackedOwners, editMessageId = null) {
     });
 
     // Активность
-    const activeRepos = allRepos.filter(([_, repo]) => repo.lastCommitTime).length;
-    const inactiveRepos = allRepos.length - activeRepos;
-    
-    message += '\n⚡ <b>Активность:</b>\n';
-    message += `🟢 Активных: ${activeRepos}\n`;
-    message += `🔴 Неактивных: ${inactiveRepos}\n`;
-    message += `📈 Активность: ${Math.round((activeRepos / allRepos.length) * 100)}%\n`;
+    message += '\n⚡ <b>Активность репозиториев:</b>\n';
+    message += `🟢 Активные (<7 дн.): ${activeRepos}\n`;
+    message += `🟡 Недавние (<30 дн.): ${recentRepos - activeRepos}\n`;
+    message += `🔴 Неактивные (>30 дн.): ${inactiveRepos}\n`;
+    message += `📈 Общая активность: ${Math.round((recentRepos / allRepos.length) * 100)}%\n`;
 
     const keyboard = [[
         { text: "↩️ К списку", callback_data: "list_main_1" },
