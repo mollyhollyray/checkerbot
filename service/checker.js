@@ -1,6 +1,6 @@
 const github = require('./github');
 const storage = require('./storage');
-const logger = require('../utils/logger');
+const logger = require('../utils/logger');  // Правильный импорт
 
 module.exports = {
   async checkAllRepos(bot) {
@@ -44,6 +44,7 @@ module.exports = {
       const updates = [];
       const releaseUpdates = [];
 
+      // === ПРОВЕРКА ИНДИВИДУАЛЬНЫХ РЕПОЗИТОРИЕВ ===
       logger.log(`🔍 НАЧИНАЕМ ПРОВЕРКУ ${repos.length} РЕПОЗИТОРИЕВ`, 'info', {
         context: 'INDIVIDUAL_REPOS_START',
         checkId,
@@ -52,6 +53,7 @@ module.exports = {
       });
 
       for (const [repoKey, repoData] of repos) {
+        // Пропускаем авто-отслеживаемые репозитории в этой фазе
         if (!repoData.trackedIndividually && repoData.fromOwner) {
           logger.log(`Пропускаем авто-отслеживаемый репозиторий: ${repoKey}`, 'debug', {
             context: 'skipAutoTracked',
@@ -79,6 +81,7 @@ module.exports = {
             startTime: new Date().toLocaleString('ru-RU')
           });
 
+          // === ПРОВЕРКА КОММИТОВ ===
           const latestCommit = await github.getBranchLastCommit(owner, repo, branch);
 
           if (!latestCommit || !latestCommit.sha) {
@@ -98,6 +101,7 @@ module.exports = {
           const commitMessage = latestCommit.commit.message.split('\n')[0];
 
           if (!repoData.lastCommitSha) {
+            // Новый репозиторий - инициализация
             await storage.updateRepoCommit(owner, repo, latestCommit);
             
             logger.log(`🎯 НОВЫЙ РЕПОЗИТОРИЙ ИНИЦИАЛИЗИРОВАН: ${repoKey}`, 'info', {
@@ -119,6 +123,7 @@ module.exports = {
           }
 
           if (latestCommit.sha !== repoData.lastCommitSha) {
+            // Обнаружено обновление коммита
             const oldCommitDate = repoData.lastCommitTime ? new Date(repoData.lastCommitTime) : null;
             
             logger.log(`🔄 ОБНАРУЖЕНО ОБНОВЛЕНИЕ КОММИТА: ${repoKey}`, 'info', {
@@ -167,84 +172,86 @@ module.exports = {
             });
           }
 
-          const latestRelease = await github.fetchLatestRelease(owner, repo)
+          // === ПРОВЕРКА РЕЛИЗОВ ===
+          const latestRelease = await github.fetchLatestRelease(owner, repo);
           
-if (latestRelease) {
-    const releaseDate = new Date(latestRelease.published_at || latestRelease.created_at);
-    const currentReleaseTag = repoData.lastReleaseTag;
-    const currentReleaseTime = repoData.lastReleaseTime || 0;
-    
-    if (!currentReleaseTag) {
-        logger.log(`🎉 ОБНАРУЖЕН ПЕРВЫЙ РЕЛИЗ: ${repoKey}`, 'info', {
-            context: 'FIRST_RELEASE',
-            checkId,
-            repoKey,
-            release: {
-                tag: latestRelease.tag_name,
-                name: latestRelease.name,
-                date: releaseDate.toLocaleString('ru-RU'),
-                timestamp: releaseDate.toISOString(),
-                url: latestRelease.html_url
-            },
-            discoveryTime: new Date().toLocaleString('ru-RU')
-        });
+          if (latestRelease) {
+            const releaseDate = new Date(latestRelease.published_at || latestRelease.created_at);
+            const currentReleaseTag = repoData.lastReleaseTag;
+            const currentReleaseTime = repoData.lastReleaseTime || 0;
+            
+            if (!currentReleaseTag) {
+              // Первый релиз
+              logger.log(`🎉 ОБНАРУЖЕН ПЕРВЫЙ РЕЛИЗ: ${repoKey}`, 'info', {
+                context: 'FIRST_RELEASE',
+                checkId,
+                repoKey,
+                release: {
+                  tag: latestRelease.tag_name,
+                  name: latestRelease.name,
+                  date: releaseDate.toLocaleString('ru-RU'),
+                  timestamp: releaseDate.toISOString(),
+                  url: latestRelease.html_url
+                },
+                discoveryTime: new Date().toLocaleString('ru-RU')
+              });
 
-        releaseUpdates.push({
-            repoKey,
-            release: latestRelease,
-            isNew: true,
-            isUpdate: false
-        });
-        
-        await storage.updateRepoRelease(owner, repo, latestRelease);
-        await this.sendReleaseNotification(bot, releaseUpdates[releaseUpdates.length - 1]);
-        
-    } else if (currentReleaseTag !== latestRelease.tag_name) {
-        // Новый релиз
-        const oldReleaseDate = new Date(currentReleaseTime);
-        
-        logger.log(`🆕 ОБНАРУЖЕН НОВЫЙ РЕЛИЗ: ${repoKey}`, 'info', {
-            context: 'NEW_RELEASE',
-            checkId,
-            repoKey,
-            oldRelease: {
-                tag: currentReleaseTag,
-                date: oldReleaseDate.toLocaleString('ru-RU'),
-                timestamp: currentReleaseTime
-            },
-            newRelease: {
-                tag: latestRelease.tag_name,
-                name: latestRelease.name,
-                date: releaseDate.toLocaleString('ru-RU'),
-                timestamp: releaseDate.toISOString(),
-                url: latestRelease.html_url
-            },
-            timeBetweenReleases: `${Math.round((releaseDate.getTime() - oldReleaseDate.getTime()) / (1000 * 60 * 60 * 24))} дней`,
-            discoveryTime: new Date().toLocaleString('ru-RU')
-        });
+              releaseUpdates.push({
+                repoKey,
+                release: latestRelease,
+                isNew: true,
+                isUpdate: false
+              });
+              
+              await storage.updateRepoRelease(owner, repo, latestRelease);
+              await this.sendReleaseNotification(bot, releaseUpdates[releaseUpdates.length - 1]);
+              
+            } else if (currentReleaseTag !== latestRelease.tag_name) {
+              // Новый релиз
+              const oldReleaseDate = new Date(currentReleaseTime);
+              
+              logger.log(`🆕 ОБНАРУЖЕН НОВЫЙ РЕЛИЗ: ${repoKey}`, 'info', {
+                context: 'NEW_RELEASE',
+                checkId,
+                repoKey,
+                oldRelease: {
+                  tag: currentReleaseTag,
+                  date: oldReleaseDate.toLocaleString('ru-RU'),
+                  timestamp: currentReleaseTime
+                },
+                newRelease: {
+                  tag: latestRelease.tag_name,
+                  name: latestRelease.name,
+                  date: releaseDate.toLocaleString('ru-RU'),
+                  timestamp: releaseDate.toISOString(),
+                  url: latestRelease.html_url
+                },
+                timeBetweenReleases: `${Math.round((releaseDate.getTime() - oldReleaseDate.getTime()) / (1000 * 60 * 60 * 24))} дней`,
+                discoveryTime: new Date().toLocaleString('ru-RU')
+              });
 
-        releaseUpdates.push({
-            repoKey,
-            release: latestRelease,
-            isNew: false,
-            isUpdate: true
-        });
-        
-        await storage.updateRepoRelease(owner, repo, latestRelease);
-        await this.sendReleaseNotification(bot, releaseUpdates[releaseUpdates.length - 1]);
-    } else {
-        logger.log(`✅ РЕЛИЗЫ АКТУАЛЬНЫ: ${repoKey}`, 'debug', {
-            context: 'RELEASE_CURRENT',
-            checkId,
-            repoKey,
-            currentRelease: {
-                tag: currentReleaseTag,
-                date: new Date(currentReleaseTime).toLocaleString('ru-RU')
-            },
-            checkTime: new Date().toLocaleString('ru-RU')
-        });
-    }
-}
+              releaseUpdates.push({
+                repoKey,
+                release: latestRelease,
+                isNew: false,
+                isUpdate: true
+              });
+              
+              await storage.updateRepoRelease(owner, repo, latestRelease);
+              await this.sendReleaseNotification(bot, releaseUpdates[releaseUpdates.length - 1]);
+            } else {
+              logger.log(`✅ РЕЛИЗЫ АКТУАЛЬНЫ: ${repoKey}`, 'debug', {
+                context: 'RELEASE_CURRENT',
+                checkId,
+                repoKey,
+                currentRelease: {
+                  tag: currentReleaseTag,
+                  date: new Date(currentReleaseTime).toLocaleString('ru-RU')
+                },
+                checkTime: new Date().toLocaleString('ru-RU')
+              });
+            }
+          }
 
           successfulChecks++;
 
@@ -270,6 +277,7 @@ if (latestRelease) {
         }
       }
 
+      // === ПРОВЕРКА АВТО-ОТСЛЕЖИВАЕМЫХ ВЛАДЕЛЬЦЕВ ===
       const trackedOwners = storage.getTrackedOwners();
       
       if (trackedOwners.length > 0) {
@@ -387,6 +395,7 @@ if (latestRelease) {
         }
       }
 
+      // === ИТОГОВЫЙ ОТЧЕТ ===
       const totalDuration = Date.now() - startTime;
       const endTime = new Date().toLocaleString('ru-RU');
       
@@ -456,7 +465,7 @@ if (latestRelease) {
         }
       );
 
-      log('Уведомление об обновлении отправлено', 'info', {
+      logger.log('Уведомление об обновлении отправлено', 'info', {
         context: 'sendUpdateNotification',
         repoKey: update.repoKey,
         branch: update.branch,
@@ -466,7 +475,7 @@ if (latestRelease) {
       });
 
     } catch (error) {
-      logError('Ошибка отправки уведомления об обновлении', error, {
+      logger.error('Ошибка отправки уведомления об обновлении', error, {
         context: 'sendUpdateNotification',
         repoKey: update.repoKey,
         chatId: process.env.ADMIN_USER_ID,
@@ -489,7 +498,7 @@ if (latestRelease) {
         }
       );
 
-      log('Уведомление о релизе отправлено', 'info', {
+      logger.log('Уведомление о релизе отправлено', 'info', {
         context: 'sendReleaseNotification',
         repoKey: releaseUpdate.repoKey,
         releaseTag: releaseUpdate.release.tag_name,
@@ -498,7 +507,7 @@ if (latestRelease) {
       });
 
     } catch (error) {
-      logError('Ошибка отправки уведомления о релизе', error, {
+      logger.error('Ошибка отправки уведомления о релизе', error, {
         context: 'sendReleaseNotification',
         repoKey: releaseUpdate.repoKey,
         chatId: process.env.ADMIN_USER_ID,
@@ -529,14 +538,14 @@ if (latestRelease) {
         }
       );
 
-      log('Уведомление о новом репозитории отправлено', 'info', {
+      logger.log('Уведомление о новом репозитории отправлено', 'info', {
         context: 'sendNewRepoNotification',
         owner,
         repo: repoName
       });
 
     } catch (error) {
-      logError('Ошибка отправки уведомления о новом репозитории', error, {
+      logger.error('Ошибка отправки уведомления о новом репозитории', error, {
         context: 'sendNewRepoNotification',
         owner,
         repo: repoName
@@ -551,6 +560,7 @@ if (latestRelease) {
       const repoData = storage.repos.get(update.repoKey.toLowerCase());
     console.log(`Creating keyboard for: ${update.repoKey}, branch: ${repoData?.branch}, default: ${repoData?.defaultBranch}`);
       
+      // Кнопка просмотра PR (если есть номер PR)
       const prMatch = update.message.match(/#(\d+)/);
       if (prMatch && prMatch[1]) {
         buttons.push([{
@@ -559,6 +569,7 @@ if (latestRelease) {
         }]);
       }
 
+      // Основные команды
       buttons.push(
         [{
           text: "🌿 3 последних коммита",
@@ -578,12 +589,13 @@ if (latestRelease) {
         }]
       );
 
+      // Кнопка удаления с подтверждением
       buttons.push([{
         text: "❌ Удалить репозиторий",
         callback_data: `confirm_remove_${update.repoKey}`
       }]);
 
-      log('Создана клавиатура уведомления', 'debug', {
+      logger.log('Создана клавиатура уведомления', 'debug', {
         context: 'createNotificationKeyboard',
         repoKey: update.repoKey,
         hasPRButton: !!prMatch,
@@ -593,7 +605,7 @@ if (latestRelease) {
       return { inline_keyboard: buttons };
       
     } catch (error) {
-      logError('Ошибка создания клавиатуры', error, {
+      logger.error('Ошибка создания клавиатуры', error, {
         context: 'createNotificationKeyboard',
         repoKey: update.repoKey
       });
