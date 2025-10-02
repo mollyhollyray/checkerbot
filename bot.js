@@ -480,9 +480,9 @@ bot.action(/^prview_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) => {
   }
 });
 
-bot.action(/^quick_last_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) => {
+bot.action(/^quick_last_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)_(.+)$/, async (ctx) => {
   try {
-    const [_, owner, repo, count] = ctx.match;
+    const [_, owner, repo, count, branch] = ctx.match;
     
     if (!owner || !repo) {
       await ctx.answerCbQuery('❌ Неверные параметры');
@@ -496,19 +496,6 @@ bot.action(/^quick_last_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) =
       return;
     }
 
-    // Получаем данные репозитория из хранилища
-    const repoData = storage.repos.get(repoKey);
-    if (!repoData) {
-      await ctx.answerCbQuery('❌ Данные репозитория не найдены');
-      return;
-    }
-
-    // Используем правильную ветку из данных репозитория
-    const branch = repoData.branch || repoData.defaultBranch || 'master';
-    
-    console.log(`Quick last: ${repoKey}, branch: ${branch}, count: ${count}`);
-
-    // Создаем правильный контекст для команды
     const fakeContext = {
       ...ctx,
       from: ctx.callbackQuery.from,
@@ -525,7 +512,7 @@ bot.action(/^quick_last_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) =
     await lastCmd(fakeContext);
     await ctx.answerCbQuery();
   } catch (error) {
-    console.error('Quick last callback error:', error);
+    console.error('Quick last with branch callback error:', error);
     await ctx.answerCbQuery('❌ Ошибка загрузки коммитов');
   }
 });

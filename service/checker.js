@@ -44,6 +44,18 @@ module.exports = {
       const updates = [];
       const releaseUpdates = [];
 
+      if (repoData.trackedIndividually) {
+            // Проверяем новые ветки только для индивидуально отслеживаемых репозиториев
+            const branchUpdates = await this.checkNewBranches(bot, owner, repo, repoData);
+            if (branchUpdates.length > 0) {
+              logger.log(`🌿 ОБНАРУЖЕНО ${branchUpdates.length} НОВЫХ ВЕТОК: ${repoKey}`, 'info', {
+                context: 'BRANCH_UPDATES_FOUND',
+                repoKey,
+                newBranchesCount: branchUpdates.length
+              });
+            }
+          }
+
       // === ПРОВЕРКА ИНДИВИДУАЛЬНЫХ РЕПОЗИТОРИЕВ ===
       logger.log(`🔍 НАЧИНАЕМ ПРОВЕРКУ ${repos.length} РЕПОЗИТОРИЕВ`, 'info', {
         context: 'INDIVIDUAL_REPOS_START',
@@ -447,6 +459,170 @@ module.exports = {
         }
       });
       return [];
+    }
+  },
+
+  async checkNewBranches(bot, owner, repo, repoData) {
+    try {
+      const repoKey = `${owner}/${repo}`;
+      
+      // Проверяем ветки не чаще чем раз в 6 часов
+      const now = Date.now();
+      const lastCheck = repoData.lastBranchesCheck || 0;
+      const hoursSinceLastCheck = (now - lastCheck) / (1000 * 60 * 60);
+      
+      if (hoursSinceLastCheck < 6) {
+        logger.log(`⏭️ Пропускаем проверку веток для ${repoKey} (проверялось ${Math.round(hoursSinceLastCheck)} часов назад)`, 'debug', {
+          context: 'SKIP_BRANCH_CHECK',
+          repoKey,
+          hoursSinceLastCheck: Math.round(hoursSinceLastCheck)
+        });
+        return [];
+      }
+
+      logger.log(`🌿 ПРОВЕРКА ВЕТОК ДЛЯ: ${repoKey}`, 'info', {
+        context: 'BRANCH_CHECK_START',
+        repoKey,
+        lastCheck: lastCheck ? new Date(lastCheck).toLocaleString('ru-RU') : 'никогда',
+        knownBranches: repoData.trackedBranches?.length || 0
+      });
+
+      const currentBranches = await github.fetchRepoBranches(owner, repo, 50);
+      const knownBranches = repoData.trackedBranches || [];
+      
+      // Находим новые ветки
+      const newBranches = currentBranches.filter(branch => 
+        !knownBranches.includes(branch)
+      );
+
+      logger.log(`📊 СТАТИСТИКА ВЕТОК: ${repoKey}`, 'info', {
+        context: 'BRANCH_STATS',
+        repoKey,
+        knownBranches: knownBranches.length,
+        currentBranches: currentBranches.length,
+        newBranches: newBranches.length,
+        newBranchesList: newBranches
+      });
+
+      // Сохраняем обновленный список веток
+      await storage.updateRepoBranches(owner, repo, currentBranches, newBranches);
+
+      // Отправляем уведомления о новых ветках
+      const branchUpdates = [];
+      for (const branch of newBranches) {
+        try {
+          const branchInfo = await github.getBranchLastCommit(owner, repo, branch);
+          if (branchInfo) {
+            branchUpdates.push({
+              repoKey,
+              branch,
+              commit: branchInfo,
+              isNew: true
+            });
+            
+            await this.sendNewBranchNotification(bot, {
+              repoKey,
+              branch,
+              commit: branchInfo
+            });
+          }
+        } catch (error) {
+          logger.error(`❌ Ошибка получения информации о ветке ${branch}`, error, {
+            context: 'BRANCH_INFO_ERROR',
+            repoKey,
+            branch
+          });
+        }
+      }
+
+      if (newBranches.length > 0) {
+        logger.log(`🎉 ОБНАРУЖЕНЫ НОВЫЕ ВЕТКИ: ${repoKey}`, 'info', {
+          context: 'NEW_BRANCHES_FOUND',
+          repoKey,
+          newBranchesCount: newBranches.length,
+          newBranches: newBranches,
+          totalBranches: currentBranches.length
+        });
+      }
+
+      return branchUpdates;
+
+    } catch (error) {
+      logger.error(`❌ ОШИБКА ПРОВЕРКИ ВЕТОК: ${owner}/${repo}`, error, {
+        context: 'BRANCH_CHECK_ERROR',
+        owner,
+        repo,
+        errorType: error.response?.status ? 'API_ERROR' : 'NETWORK_ERROR'
+      });
+      return [];
+    }
+  },
+
+  // Уведомление о новой ветке
+  async sendNewBranchNotification(bot, branchUpdate) {
+    try {
+      const { repoKey, branch, commit } = branchUpdate;
+      const [owner, repo] = repoKey.split('/');
+      
+      const commitDate = new Date(commit.commit.committer.date);
+      const commitMessage = commit.commit.message.split('\n')[0];
+      
+      const message = `
+🌿 <b>Новая ветка в ${repoKey}</b>
+
+🆕 <b>Ветка:</b> <code>${branch}</code>
+📝 <b>Последний коммит:</b> ${commitMessage.substring(0, 100)}
+👤 <b>Автор:</b> ${commit.commit.author.name}
+📅 <b>Дата:</b> ${commitDate.toLocaleString('ru-RU')}
+🔗 <b>Ссылка:</b> ${commit.html_url}
+
+💡 <i>Для просмотра коммитов: /last ${repoKey} ${branch}</i>
+      `.trim();
+
+      const keyboard = {
+        inline_keyboard: [
+          [
+            {
+              text: "📝 Посмотреть коммиты",
+              callback_data: `quick_last_${owner}_${repo}_3_${branch}`
+            },
+            {
+              text: "🌿 Все ветки",
+              callback_data: `quick_branches_${owner}_${repo}_20`
+            }
+          ],
+          [
+            {
+              text: "❌ Удалить репозиторий",
+              callback_data: `confirm_remove_${repoKey}`
+            }
+          ]
+        ]
+      };
+
+      await bot.telegram.sendMessage(
+        process.env.ADMIN_USER_ID,
+        message,
+        { 
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+          reply_markup: keyboard
+        }
+      );
+
+      logger.log('Уведомление о новой ветке отправлено', 'info', {
+        context: 'sendNewBranchNotification',
+        repoKey,
+        branch,
+        commitSha: commit.sha.slice(0, 7)
+      });
+
+    } catch (error) {
+      logger.error('Ошибка отправки уведомления о новой ветке', error, {
+        context: 'sendNewBranchNotification',
+        repoKey: branchUpdate.repoKey,
+        branch: branchUpdate.branch
+      });
     }
   },
 
