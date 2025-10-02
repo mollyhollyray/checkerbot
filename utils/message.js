@@ -32,7 +32,7 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   }
 
   if (!bot || !chatId) {
-    logger.error('Не указан бот или chatId'); // Исправлено: errorr -> error
+    logger.error('Не указан бот или chatId');
     return false;
   }
 
@@ -45,7 +45,7 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   }
 
   const {
-    parse_mode = 'HTML', // Изменено по умолчанию на HTML
+    parse_mode = 'HTML',
     disable_web_page_preview = true,
     retryCount = 2,
     ...otherOptions
@@ -54,7 +54,6 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   try {
     let formattedText = text;
     
-    // Применяем экранирование только для Markdown
     if (parse_mode === 'MarkdownV2') {
       formattedText = escapeMarkdown(text);
     }
@@ -91,7 +90,6 @@ async function sendLongMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   const MAX_LENGTH = 4000;
   let text;
   
-  // Упрощенное получение текста
   text = typeof chatIdOrText === 'string' ? chatIdOrText : textOrOptions;
 
   if (typeof text !== 'string') {

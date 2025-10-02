@@ -1,7 +1,7 @@
 const axios = require('axios');
 const config = require('../config');
 const { sendMessage, sendLongMessage, escapeHtml } = require('../utils/message');
-const { logError } = require('../utils/logger');
+const logger = require('../utils/logger');
 const storage = require('../service/storage');
 
 function isValidRepoFormat(repoInput) {
@@ -314,6 +314,6 @@ module.exports = async (ctx) => {
       }
     );
     
-    logger.logError(error, `PR View command failed: ${error.message}`);
+    logger.error(error, `PR View command failed: ${error.message}`);
   }
 };

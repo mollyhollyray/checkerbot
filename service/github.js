@@ -1,6 +1,6 @@
 const axios = require('axios');
 const config = require('../config');
-const { log, logError } = require('../utils/logger');
+const logger = require('../utils/logger');
 const NodeCache = require('node-cache');
 
 const apiCache = new NodeCache({ stdTTL: 300 });
@@ -38,7 +38,9 @@ async function makeRequest(url, params = {}) {
     apiCache.set(cacheKey, response.data);
     return response.data;
   } catch (error) {
-    logError(`GitHub API request failed: ${url} - ${error.message}`);
+    if (error.response?.status !== 404) {
+      logger.error(`GitHub API request failed: ${url} - ${error.message}`);
+    }
     throw error;
   }
 }
@@ -50,24 +52,25 @@ async function fetchLatestRelease(owner, repo) {
         );
         return data;
     } catch (error) {
-        // Если нет релизов, пробуем получить теги
         if (error.response?.status === 404) {
             try {
                 const tags = await makeRequest(
                     `https://api.github.com/repos/${owner}/${repo}/tags`
                 );
-                if (tags.length > 0) {
+                if (tags && tags.length > 0) {
                     return {
                         tag_name: tags[0].name,
                         name: tags[0].name,
                         html_url: `https://github.com/${owner}/${repo}/releases/tag/${tags[0].name}`,
                         created_at: new Date().toISOString(),
+                        published_at: new Date().toISOString(),
                         prerelease: false,
-                        draft: false
+                        draft: false,
+                        body: null
                     };
                 }
             } catch (tagError) {
-                // Игнорируем ошибки тегов
+                logger.debug(`No tags found for ${owner}/${repo}: ${tagError.message}`);
             }
         }
         return null;
@@ -82,6 +85,10 @@ async function fetchAllReleases(owner, repo, limit = 10) {
         );
         return data;
     } catch (error) {
+        if (error.response?.status === 404) {
+            return [];
+        }
+        logger.error(`Error fetching releases for ${owner}/${repo}: ${error.message}`);
         return [];
     }
 }
@@ -118,7 +125,7 @@ async function fetchUserRepos(owner, limit = 100) {
     );
     return data;
   } catch (error) {
-    logError(`Failed to fetch user repos: ${owner}`, error);
+    logger.error(`Failed to fetch user repos: ${owner}`, error);
     return [];
   }
 }
@@ -135,7 +142,7 @@ async function fetchOrgRepos(org, limit = 100) {
     );
     return data;
   } catch (error) {
-    logError(`Failed to fetch org repos: ${org}`, error);
+    logger.error(`Failed to fetch org repos: ${org}`, error);
     return [];
   }
 }
@@ -143,9 +150,8 @@ async function fetchOrgRepos(org, limit = 100) {
 async function getAccountType(owner) {
   try {
     const userData = await makeRequest(`https://api.github.com/users/${owner}`);
-    return userData.type; // 'User' или 'Organization'
+    return userData.type;
   } catch (error) {
-    // Если ошибка 404, пробуем как organization
     if (error.response?.status === 404) {
       try {
         await makeRequest(`https://api.github.com/orgs/${owner}`);
@@ -154,26 +160,77 @@ async function getAccountType(owner) {
         return 'Unknown';
       }
     }
-    return 'User'; // По умолчанию считаем User
+    return 'User';
   }
 }
 
 async function fetchRepoData(owner, repo) {
   try {
-    const [repoInfo, commits] = await Promise.all([
-      makeRequest(`https://api.github.com/repos/${owner}/${repo}`),
-      makeRequest(`https://api.github.com/repos/${owner}/${repo}/commits`, {
-        per_page: 1
-      })
-    ]);
+    const repoInfo = await makeRequest(`https://api.github.com/repos/${owner}/${repo}`);
+    
+    let lastCommitSha = '';
+    let lastCommitTime = 0;
+
+    if (repoInfo.size > 0) {
+      try {
+        const commits = await makeRequest(`https://api.github.com/repos/${owner}/${repo}/commits`, {
+          per_page: 1
+        });
+        
+        if (commits && commits.length > 0) {
+          lastCommitSha = commits[0].sha || '';
+          lastCommitTime = commits[0] ? new Date(commits[0].commit.committer.date).getTime() : 0;
+        }
+      } catch (commitError) {
+        if (commitError.response?.status === 409) {
+          logger.log(`Репозиторий ${owner}/${repo} пуст или не содержит коммитов`, 'info', {
+            context: 'EMPTY_REPO',
+            owner,
+            repo,
+            defaultBranch: repoInfo.default_branch
+          });
+        } else {
+          throw commitError;
+        }
+      }
+    } else {
+      logger.log(`Репозиторий ${owner}/${repo} имеет размер 0 (пустой)`, 'info', {
+        context: 'ZERO_SIZE_REPO',
+        owner,
+        repo
+      });
+    }
 
     return {
-      lastCommitSha: commits[0]?.sha || '',
-      lastCommitTime: commits[0] ? new Date(commits[0].commit.committer.date).getTime() : 0,
-      defaultBranch: repoInfo.default_branch || 'main'
+      lastCommitSha,
+      lastCommitTime,
+      defaultBranch: repoInfo.default_branch || 'main',
+      repoSize: repoInfo.size,
+      isEmpty: repoInfo.size === 0
     };
   } catch (error) {
-    logError(`Failed to fetch repo data: ${owner}/${repo} - ${error.message}`);
+    if (error.response?.status === 409) {
+      logger.log(`Репозиторий ${owner}/${repo} пуст (GitHub 409)`, 'info', {
+        context: 'EMPTY_REPO_409',
+        owner,
+        repo
+      });
+      
+      return {
+        lastCommitSha: '',
+        lastCommitTime: 0,
+        defaultBranch: 'main',
+        repoSize: 0,
+        isEmpty: true
+      };
+    }
+    
+    logger.error(`Failed to fetch repo data: ${owner}/${repo} - ${error.message}`, error, {
+      context: 'FETCH_REPO_DATA_ERROR',
+      owner,
+      repo,
+      statusCode: error.response?.status
+    });
     throw error;
   }
 }
@@ -186,7 +243,7 @@ async function fetchRepoBranches(owner, repo, limit = 15) {
     );
     return data.map(b => b.name);
   } catch (error) {
-    logError(`Failed to fetch branches: ${owner}/${repo} - ${error.message}`);
+    logger.error(`Failed to fetch branches: ${owner}/${repo} - ${error.message}`);
     return [];
   }
 }
@@ -199,7 +256,7 @@ async function getBranchLastCommit(owner, repo, branch) {
     );
     return data[0];
   } catch (error) {
-    logError(`Failed to get branch last commit: ${owner}/${repo}/${branch} - ${error.message}`);
+    logger.error(`Failed to get branch last commit: ${owner}/${repo}/${branch} - ${error.message}`);
     return null;
   }
 }
@@ -211,7 +268,7 @@ async function getDefaultBranch(owner, repo) {
     );
     return data.default_branch;
   } catch (error) {
-    logError(`Failed to get default branch: ${owner}/${repo} - ${error.message}`);
+    logger.error(`Failed to get default branch: ${owner}/${repo} - ${error.message}`);
     return 'main';
   }
 }
@@ -224,7 +281,7 @@ async function getTotalBranchesCount(owner, repo) {
     );
     return data.length === 1 ? '50+' : data.length;
   } catch (error) {
-    logError(`Failed to get branches count: ${owner}/${repo} - ${error.message}`);
+    logger.error(`Failed to get branches count: ${owner}/${repo} - ${error.message}`);
     return '?';
   }
 }
@@ -237,7 +294,7 @@ async function getTotalCommitsCount(owner, repo, branch) {
     );
     return data.length === 1 ? '100+' : data.length;
   } catch (error) {
-    logError(`Failed to get commits count: ${owner}/${repo}/${branch} - ${error.message}`);
+    logger.error(`Failed to get commits count: ${owner}/${repo}/${branch} - ${error.message}`);
     return '?';
   }
 }
@@ -261,7 +318,7 @@ async function fetchCommitsWithNumbers(owner, repo, branch, perPage = 5, page = 
             hasMore: response?.length === perPage
         };
     } catch (error) {
-        logError(`Failed to fetch commits: ${owner}/${repo}/${branch} - ${error.message}`);
+        logger.error(`Failed to fetch commits: ${owner}/${repo}/${branch} - ${error.message}`);
         return { commits: [], firstNumber: 1, hasMore: false };
     }
 }
@@ -278,7 +335,7 @@ async function fetchCommitsByBranch(owner, repo, branch, perPage = 5, page = 1) 
         );
         return response || [];
     } catch (error) {
-        logError(`Failed to fetch commits: ${owner}/${repo}/${branch} - ${error.message}`);
+        logger.error(`Failed to fetch commits: ${owner}/${repo}/${branch} - ${error.message}`);
         return [];
     }
 }

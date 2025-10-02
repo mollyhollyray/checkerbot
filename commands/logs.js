@@ -27,12 +27,10 @@ module.exports = async (ctx) => {
 
         await ctx.replyWithChatAction('typing');
 
-        // Читаем логи из файла
         let logContent;
         try {
             logContent = await readFile(config.LOG_FILE, 'utf8');
         } catch (error) {
-            // Если файла нет, пробуем pm2 logs
             const { exec } = require('child_process');
             const { promisify } = require('util');
             const execAsync = promisify(exec);
@@ -51,7 +49,6 @@ module.exports = async (ctx) => {
             );
         }
 
-        // Берем последние N строк
         const logLines = logContent.split('\n');
         const lastLines = logLines.slice(-lines).join('\n');
         

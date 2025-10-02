@@ -1,87 +1,145 @@
 const github = require('./github');
 const storage = require('./storage');
-const { log, logError } = require('../utils/logger');
+const logger = require('../utils/logger');
 
 module.exports = {
   async checkAllRepos(bot) {
     const startTime = Date.now();
+    const checkId = `check_${Date.now()}`;
+    const timestamp = new Date().toISOString();
+
+    logger.log(`🔄 ЗАПУСК ПРОВЕРКИ [${checkId}]`, 'info', {
+      context: 'CHECK_START',
+      checkId,
+      timestamp,
+      startTime: new Date().toLocaleString('ru-RU')
+    });
+
     let processedRepos = 0;
     let successfulChecks = 0;
     let failedChecks = 0;
+    let newReposFromOwners = 0;
 
     try {
       const repos = storage.getRepos();
+      
+      logger.log(`📊 СТАТИСТИКА РЕПОЗИТОРИЕВ`, 'info', {
+        context: 'REPOS_STATS',
+        checkId,
+        totalRepos: repos.length,
+        individualRepos: repos.filter(([_, repo]) => repo.trackedIndividually).length,
+        autoTrackedRepos: repos.filter(([_, repo]) => !repo.trackedIndividually).length,
+        timestamp: new Date().toLocaleString('ru-RU')
+      });
+
       if (!repos || repos.length === 0) {
-        log('Нет репозиториев для проверки', 'info', { 
-          context: 'checkAllRepos',
-          reposCount: 0 
+        logger.log('❌ НЕТ РЕПОЗИТОРИЕВ ДЛЯ ПРОВЕРКИ', 'warn', {
+          context: 'NO_REPOS',
+          checkId,
+          timestamp: new Date().toLocaleString('ru-RU')
         });
         return [];
       }
 
-      log(`Начинаем проверку ${repos.length} репозиториев`, 'info', {
-        context: 'checkAllRepos',
-        reposCount: repos.length,
-        repoKeys: repos.map(([key]) => key)
-      });
-
       const updates = [];
       const releaseUpdates = [];
 
-      // Проверяем отдельные репозитории
+      logger.log(`🔍 НАЧИНАЕМ ПРОВЕРКУ ${repos.length} РЕПОЗИТОРИЕВ`, 'info', {
+        context: 'INDIVIDUAL_REPOS_START',
+        checkId,
+        reposCount: repos.length,
+        startTime: new Date().toLocaleString('ru-RU')
+      });
+
       for (const [repoKey, repoData] of repos) {
-        // Пропускаем репозитории, которые отслеживаются через владельца
         if (!repoData.trackedIndividually && repoData.fromOwner) {
+          logger.log(`Пропускаем авто-отслеживаемый репозиторий: ${repoKey}`, 'debug', {
+            context: 'skipAutoTracked',
+            repoKey,
+            fromOwner: repoData.fromOwner
+          });
           continue;
         }
 
         processedRepos++;
+        const repoStartTime = Date.now();
+
         try {
           const [owner, repo] = repoKey.split('/');
           const branch = repoData.branch || repoData.defaultBranch || 'main';
 
-          log(`Проверяем ${repoKey} (${branch})`, 'debug', {
-            context: 'repoCheck',
+          logger.log(`📝 ПРОВЕРКА РЕПОЗИТОРИЯ: ${repoKey}`, 'info', {
+            context: 'REPO_CHECK_START',
+            checkId,
             repoKey,
             branch,
-            lastCommitSha: repoData.lastCommitSha?.slice(0, 7) || 'none',
-            lastReleaseTag: repoData.lastReleaseTag || 'none'
+            trackedIndividually: repoData.trackedIndividually,
+            lastCommit: repoData.lastCommitSha ? `${repoData.lastCommitSha.slice(0, 7)} (${new Date(repoData.lastCommitTime).toLocaleString('ru-RU')})` : 'нет данных',
+            lastRelease: repoData.lastReleaseTag ? `${repoData.lastReleaseTag} (${new Date(repoData.lastReleaseTime).toLocaleString('ru-RU')})` : 'нет данных',
+            startTime: new Date().toLocaleString('ru-RU')
           });
 
-          // Проверяем коммиты
           const latestCommit = await github.getBranchLastCommit(owner, repo, branch);
 
           if (!latestCommit || !latestCommit.sha) {
-            logError(`Не удалось получить коммит для ${repoKey}`, null, {
-              context: 'repoCheck',
+            logger.error(`❌ НЕ УДАЛОСЬ ПОЛУЧИТЬ КОММИТ ДЛЯ ${repoKey}`, null, {
+              context: 'COMMIT_FETCH_FAILED',
+              checkId,
               repoKey,
               branch,
-              errorType: 'NO_COMMIT_DATA'
+              error: 'NO_COMMIT_DATA',
+              timestamp: new Date().toLocaleString('ru-RU')
             });
             failedChecks++;
             continue;
           }
 
+          const commitDate = new Date(latestCommit.commit.committer.date);
+          const commitMessage = latestCommit.commit.message.split('\n')[0];
+
           if (!repoData.lastCommitSha) {
             await storage.updateRepoCommit(owner, repo, latestCommit);
-            log(`Инициализирован новый репозиторий: ${repoKey}`, 'info', {
-              context: 'repoInit',
+            
+            logger.log(`🎯 НОВЫЙ РЕПОЗИТОРИЙ ИНИЦИАЛИЗИРОВАН: ${repoKey}`, 'info', {
+              context: 'NEW_REPO_INIT',
+              checkId,
               repoKey,
               branch,
-              newCommitSha: latestCommit.sha.slice(0, 7)
+              firstCommit: {
+                sha: latestCommit.sha.slice(0, 7),
+                message: commitMessage,
+                author: latestCommit.commit.author.name,
+                date: commitDate.toLocaleString('ru-RU'),
+                timestamp: commitDate.toISOString()
+              },
+              initTime: new Date().toLocaleString('ru-RU')
             });
             successfulChecks++;
             continue;
           }
 
           if (latestCommit.sha !== repoData.lastCommitSha) {
-            log(`Обнаружено обновление в ${repoKey}`, 'info', {
-              context: 'repoUpdate',
+            const oldCommitDate = repoData.lastCommitTime ? new Date(repoData.lastCommitTime) : null;
+            
+            logger.log(`🔄 ОБНАРУЖЕНО ОБНОВЛЕНИЕ КОММИТА: ${repoKey}`, 'info', {
+              context: 'COMMIT_UPDATE',
+              checkId,
               repoKey,
               branch,
-              oldCommitSha: repoData.lastCommitSha.slice(0, 7),
-              newCommitSha: latestCommit.sha.slice(0, 7),
-              commitMessage: latestCommit.commit.message.split('\n')[0]
+              oldCommit: {
+                sha: repoData.lastCommitSha.slice(0, 7),
+                date: oldCommitDate ? oldCommitDate.toLocaleString('ru-RU') : 'неизвестно',
+                timestamp: repoData.lastCommitTime || 'неизвестно'
+              },
+              newCommit: {
+                sha: latestCommit.sha.slice(0, 7),
+                message: commitMessage,
+                author: latestCommit.commit.author.name,
+                date: commitDate.toLocaleString('ru-RU'),
+                timestamp: commitDate.toISOString()
+              },
+              updateTime: new Date().toLocaleString('ru-RU'),
+              timeSinceLastUpdate: oldCommitDate ? `${Math.round((Date.now() - oldCommitDate.getTime()) / (1000 * 60 * 60))} часов` : 'неизвестно'
             });
 
             updates.push({
@@ -89,147 +147,295 @@ module.exports = {
               branch,
               newSha: latestCommit.sha,
               oldSha: repoData.lastCommitSha,
-              message: latestCommit.commit.message.split('\n')[0],
+              message: commitMessage,
               url: latestCommit.html_url
             });
 
             await storage.updateRepoCommit(owner, repo, latestCommit);
             await this.sendUpdateNotification(bot, updates[updates.length - 1]);
+          } else {
+            logger.log(`✅ КОММИТЫ АКТУАЛЬНЫ: ${repoKey}`, 'debug', {
+              context: 'COMMIT_CURRENT',
+              checkId,
+              repoKey,
+              branch,
+              lastCommit: {
+                sha: latestCommit.sha.slice(0, 7),
+                date: commitDate.toLocaleString('ru-RU')
+              },
+              checkTime: new Date().toLocaleString('ru-RU')
+            });
           }
 
-          // Проверяем релизы
-          const latestRelease = await github.fetchLatestRelease(owner, repo);
-          if (latestRelease) {
-            const currentReleaseTag = repoData.lastReleaseTag;
-            const currentReleaseTime = repoData.lastReleaseTime || 0;
-            const newReleaseTime = new Date(latestRelease.published_at || latestRelease.created_at).getTime();
-            
-            if (!currentReleaseTag || currentReleaseTag !== latestRelease.tag_name) {
-              log(`Обнаружен новый релиз в ${repoKey}`, 'info', {
-                context: 'repoRelease',
-                repoKey,
-                oldReleaseTag: currentReleaseTag || 'none',
-                newReleaseTag: latestRelease.tag_name,
-                releaseName: latestRelease.name
-              });
+          const latestRelease = await github.fetchLatestRelease(owner, repo)
+          
+if (latestRelease) {
+    const releaseDate = new Date(latestRelease.published_at || latestRelease.created_at);
+    const currentReleaseTag = repoData.lastReleaseTag;
+    const currentReleaseTime = repoData.lastReleaseTime || 0;
+    
+    if (!currentReleaseTag) {
+        logger.log(`🎉 ОБНАРУЖЕН ПЕРВЫЙ РЕЛИЗ: ${repoKey}`, 'info', {
+            context: 'FIRST_RELEASE',
+            checkId,
+            repoKey,
+            release: {
+                tag: latestRelease.tag_name,
+                name: latestRelease.name,
+                date: releaseDate.toLocaleString('ru-RU'),
+                timestamp: releaseDate.toISOString(),
+                url: latestRelease.html_url
+            },
+            discoveryTime: new Date().toLocaleString('ru-RU')
+        });
 
-              releaseUpdates.push({
-                repoKey,
-                release: latestRelease,
-                isNew: !currentReleaseTag,
-                isUpdate: !!currentReleaseTag
-              });
-              
-              await storage.updateRepoRelease(owner, repo, latestRelease);
-              await this.sendReleaseNotification(bot, releaseUpdates[releaseUpdates.length - 1]);
-            }
-          }
+        releaseUpdates.push({
+            repoKey,
+            release: latestRelease,
+            isNew: true,
+            isUpdate: false
+        });
+        
+        await storage.updateRepoRelease(owner, repo, latestRelease);
+        await this.sendReleaseNotification(bot, releaseUpdates[releaseUpdates.length - 1]);
+        
+    } else if (currentReleaseTag !== latestRelease.tag_name) {
+        // Новый релиз
+        const oldReleaseDate = new Date(currentReleaseTime);
+        
+        logger.log(`🆕 ОБНАРУЖЕН НОВЫЙ РЕЛИЗ: ${repoKey}`, 'info', {
+            context: 'NEW_RELEASE',
+            checkId,
+            repoKey,
+            oldRelease: {
+                tag: currentReleaseTag,
+                date: oldReleaseDate.toLocaleString('ru-RU'),
+                timestamp: currentReleaseTime
+            },
+            newRelease: {
+                tag: latestRelease.tag_name,
+                name: latestRelease.name,
+                date: releaseDate.toLocaleString('ru-RU'),
+                timestamp: releaseDate.toISOString(),
+                url: latestRelease.html_url
+            },
+            timeBetweenReleases: `${Math.round((releaseDate.getTime() - oldReleaseDate.getTime()) / (1000 * 60 * 60 * 24))} дней`,
+            discoveryTime: new Date().toLocaleString('ru-RU')
+        });
+
+        releaseUpdates.push({
+            repoKey,
+            release: latestRelease,
+            isNew: false,
+            isUpdate: true
+        });
+        
+        await storage.updateRepoRelease(owner, repo, latestRelease);
+        await this.sendReleaseNotification(bot, releaseUpdates[releaseUpdates.length - 1]);
+    } else {
+        logger.log(`✅ РЕЛИЗЫ АКТУАЛЬНЫ: ${repoKey}`, 'debug', {
+            context: 'RELEASE_CURRENT',
+            checkId,
+            repoKey,
+            currentRelease: {
+                tag: currentReleaseTag,
+                date: new Date(currentReleaseTime).toLocaleString('ru-RU')
+            },
+            checkTime: new Date().toLocaleString('ru-RU')
+        });
+    }
+}
 
           successfulChecks++;
 
+          const repoDuration = Date.now() - repoStartTime;
+          logger.log(`✅ РЕПОЗИТОРИЙ ПРОВЕРЕН: ${repoKey}`, 'debug', {
+            context: 'REPO_CHECK_COMPLETE',
+            checkId,
+            repoKey,
+            duration: `${repoDuration}ms`,
+            endTime: new Date().toLocaleString('ru-RU')
+          });
+
         } catch (error) {
           failedChecks++;
-          logError(`Ошибка при проверке ${repoKey}`, error, {
-            context: 'repoCheck',
+          logger.error(`❌ ОШИБКА ПРОВЕРКИ РЕПОЗИТОРИЯ: ${repoKey}`, error, {
+            context: 'REPO_CHECK_ERROR',
+            checkId,
             repoKey,
-            branch: repoData.branch,
-            lastCommitSha: repoData.lastCommitSha?.slice(0, 7),
-            lastReleaseTag: repoData.lastReleaseTag,
             errorType: error.response?.status ? 'API_ERROR' : 'NETWORK_ERROR',
             statusCode: error.response?.status,
-            responseData: error.response?.data ? JSON.stringify(error.response.data).substring(0, 200) : null
+            timestamp: new Date().toLocaleString('ru-RU')
           });
         }
       }
 
-      // Проверяем репозитории отслеживаемых владельцев
       const trackedOwners = storage.getTrackedOwners();
-      for (const owner of trackedOwners) {
-        try {
-          log(`Проверяем новые репозитории владельца: ${owner}`, 'info', {
-            context: 'ownerCheck',
-            owner
-          });
+      
+      if (trackedOwners.length > 0) {
+        logger.log(`👥 НАЧИНАЕМ ПРОВЕРКУ ${trackedOwners.length} ВЛАДЕЛЬЦЕВ`, 'info', {
+          context: 'OWNER_CHECK_START',
+          checkId,
+          ownersCount: trackedOwners.length,
+          owners: trackedOwners,
+          startTime: new Date().toLocaleString('ru-RU')
+        });
 
-          const accountType = await github.getAccountType(owner);
-          let ownerRepos = [];
+        for (const owner of trackedOwners) {
+          const ownerStartTime = Date.now();
           
-          if (accountType === 'Organization') {
-            ownerRepos = await github.fetchOrgRepos(owner, 30);
-          } else {
-            ownerRepos = await github.fetchUserRepos(owner, 30);
-          }
+          try {
+            logger.log(`🔍 ПРОВЕРКА ВЛАДЕЛЬЦА: ${owner}`, 'info', {
+              context: 'OWNER_CHECK_START',
+              checkId,
+              owner,
+              startTime: new Date().toLocaleString('ru-RU')
+            });
 
-          let newReposCount = 0;
+            const accountType = await github.getAccountType(owner);
+            let ownerRepos = [];
+            
+            if (accountType === 'Organization') {
+              ownerRepos = await github.fetchOrgRepos(owner, 50);
+            } else {
+              ownerRepos = await github.fetchUserRepos(owner, 50);
+            }
 
-          // Проверяем новые репозитории у владельца
-          for (const repo of ownerRepos) {
-            if (!storage.repoExists(owner, repo.name)) {
-              try {
-                const repoData = await github.fetchRepoData(owner, repo.name);
-                storage.addRepoFromOwner(owner, repo.name, {
-                  lastCommitSha: repoData.lastCommitSha,
-                  lastCommitTime: repoData.lastCommitTime,
-                  defaultBranch: repoData.defaultBranch
-                });
-                
-                newReposCount++;
-                log(`Добавлен новый репозиторий от владельца: ${owner}/${repo.name}`, 'info', {
-                  context: 'newRepoFromOwner',
-                  owner,
-                  repo: repo.name
-                });
+            logger.log(`📦 ПОЛУЧЕНО РЕПОЗИТОРИЕВ ОТ ${owner}: ${ownerRepos.length}`, 'info', {
+              context: 'OWNER_REPOS_FETCHED',
+              checkId,
+              owner,
+              accountType,
+              reposCount: ownerRepos.length,
+              fetchTime: new Date().toLocaleString('ru-RU')
+            });
 
-                // Отправляем уведомление о новом репозитории
-                await this.sendNewRepoNotification(bot, owner, repo.name);
+            let newReposCount = 0;
+            const addedRepos = [];
 
-              } catch (repoError) {
-                logError(`Ошибка при добавлении репозитория ${owner}/${repo.name}`, repoError);
+            for (const repo of ownerRepos.slice(0, 30)) {
+              const repoKey = `${owner}/${repo.name}`;
+              
+              if (!storage.repoExists(owner, repo.name)) {
+                try {
+                  const repoData = await github.fetchRepoData(owner, repo.name);
+                  
+                  storage.addRepoFromOwner(owner, repo.name, {
+                    lastCommitSha: repoData.lastCommitSha,
+                    lastCommitTime: repoData.lastCommitTime,
+                    defaultBranch: repoData.defaultBranch
+                  });
+                  
+                  newReposCount++;
+                  newReposFromOwners++;
+                  addedRepos.push({
+                    name: repo.name,
+                    defaultBranch: repoData.defaultBranch,
+                    lastCommit: repoData.lastCommitSha ? `${repoData.lastCommitSha.slice(0, 7)} (${new Date(repoData.lastCommitTime).toLocaleString('ru-RU')})` : 'нет данных'
+                  });
+
+                  logger.log(`🎯 ДОБАВЛЕН НОВЫЙ РЕПОЗИТОРИЙ: ${repoKey}`, 'info', {
+                    context: 'NEW_REPO_ADDED',
+                    checkId,
+                    owner,
+                    repo: repo.name,
+                    repoKey,
+                    defaultBranch: repoData.defaultBranch,
+                    firstCommit: repoData.lastCommitSha ? repoData.lastCommitSha.slice(0, 7) : 'нет данных',
+                    commitDate: repoData.lastCommitTime ? new Date(repoData.lastCommitTime).toLocaleString('ru-RU') : 'нет данных',
+                    addTime: new Date().toLocaleString('ru-RU')
+                  });
+
+                  await this.sendNewRepoNotification(bot, owner, repo.name);
+
+                } catch (repoError) {
+                  logger.error(`❌ ОШИБКА ДОБАВЛЕНИЯ РЕПОЗИТОРИЯ: ${repoKey}`, repoError, {
+                    context: 'NEW_REPO_ERROR',
+                    checkId,
+                    owner,
+                    repo: repo.name,
+                    errorType: repoError.response?.status ? 'API_ERROR' : 'NETWORK_ERROR',
+                    timestamp: new Date().toLocaleString('ru-RU')
+                  });
+                }
               }
             }
-          }
 
-          if (newReposCount > 0) {
-            log(`Добавлено ${newReposCount} новых репозиториев от владельца: ${owner}`, 'info');
             storage.updateOwnerReposCount(owner, newReposCount);
-          }
+            
+            const ownerDuration = Date.now() - ownerStartTime;
+            logger.log(`✅ ПРОВЕРКА ВЛАДЕЛЬЦА ЗАВЕРШЕНА: ${owner}`, 'info', {
+              context: 'OWNER_CHECK_COMPLETE',
+              checkId,
+              owner,
+              newReposCount,
+              addedRepos: addedRepos.map(r => r.name),
+              totalRepos: ownerRepos.length,
+              duration: `${ownerDuration}ms`,
+              endTime: new Date().toLocaleString('ru-RU')
+            });
 
-        } catch (error) {
-          logError(`Ошибка при проверке владельца ${owner}`, error, {
-            context: 'ownerCheck',
-            owner
-          });
+          } catch (error) {
+            logger.error(`❌ ОШИБКА ПРОВЕРКИ ВЛАДЕЛЬЦА: ${owner}`, error, {
+              context: 'OWNER_CHECK_ERROR',
+              checkId,
+              owner,
+              errorType: error.response?.status ? 'API_ERROR' : 'NETWORK_ERROR',
+              timestamp: new Date().toLocaleString('ru-RU')
+            });
+          }
         }
       }
 
-      const duration = Date.now() - startTime;
-      log('Проверка репозиториев завершена', 'info', {
-        context: 'checkAllReposSummary',
-        durationMs: duration,
-        totalRepos: repos.length,
-        processedRepos,
-        successfulChecks,
-        failedChecks,
-        updatesFound: updates.length,
-        releasesFound: releaseUpdates.length,
-        trackedOwners: trackedOwners.length,
+      const totalDuration = Date.now() - startTime;
+      const endTime = new Date().toLocaleString('ru-RU');
+      
+      logger.log(`✅ ПРОВЕРКА ЗАВЕРШЕНА [${checkId}]`, 'info', {
+        context: 'CHECK_COMPLETE',
+        checkId,
+        duration: {
+          totalMs: totalDuration,
+          totalSeconds: (totalDuration / 1000).toFixed(2),
+          totalMinutes: (totalDuration / 1000 / 60).toFixed(2)
+        },
+        statistics: {
+          totalRepos: repos.length,
+          processedRepos,
+          successfulChecks,
+          failedChecks,
+          updatesFound: updates.length,
+          releasesFound: releaseUpdates.length,
+          trackedOwners: trackedOwners.length,
+          newReposFromOwners
+        },
         performance: {
-          msPerRepo: duration / repos.length,
-          reposPerSecond: (repos.length / (duration / 1000)).toFixed(2)
+          msPerRepo: (totalDuration / processedRepos).toFixed(2),
+          reposPerSecond: (processedRepos / (totalDuration / 1000)).toFixed(2)
+        },
+        timestamps: {
+          start: timestamp,
+          end: new Date().toISOString(),
+          startLocal: new Date(startTime).toLocaleString('ru-RU'),
+          endLocal: endTime
         }
       });
 
       return [...updates, ...releaseUpdates];
     } catch (error) {
-      const duration = Date.now() - startTime;
-      logError('Критическая ошибка в checkAllRepos', error, {
-        context: 'checkAllRepos',
-        stack: error.stack,
-        timestamp: new Date().toISOString(),
-        durationMs: duration,
+      const totalDuration = Date.now() - startTime;
+      logger.error(`💥 КРИТИЧЕСКАЯ ОШИБКА ПРОВЕРКИ [${checkId}]`, error, {
+        context: 'CHECK_FAILED',
+        checkId,
+        duration: `${totalDuration}ms`,
         processedRepos,
         successfulChecks,
-        failedChecks
+        failedChecks,
+        timestamps: {
+          start: timestamp,
+          error: new Date().toISOString(),
+          startLocal: new Date(startTime).toLocaleString('ru-RU'),
+          errorLocal: new Date().toLocaleString('ru-RU')
+        }
       });
       return [];
     }
@@ -342,8 +548,9 @@ module.exports = {
     try {
       const [owner, repo] = update.repoKey.split('/');
       const buttons = [];
+      const repoData = storage.repos.get(update.repoKey.toLowerCase());
+    console.log(`Creating keyboard for: ${update.repoKey}, branch: ${repoData?.branch}, default: ${repoData?.defaultBranch}`);
       
-      // Кнопка просмотра PR (если есть номер PR)
       const prMatch = update.message.match(/#(\d+)/);
       if (prMatch && prMatch[1]) {
         buttons.push([{
@@ -352,7 +559,6 @@ module.exports = {
         }]);
       }
 
-      // Основные команды
       buttons.push(
         [{
           text: "🌿 3 последних коммита",
@@ -372,7 +578,6 @@ module.exports = {
         }]
       );
 
-      // Кнопка удаления с подтверждением
       buttons.push([{
         text: "❌ Удалить репозиторий",
         callback_data: `confirm_remove_${update.repoKey}`

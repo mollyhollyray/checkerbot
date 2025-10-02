@@ -76,7 +76,6 @@ module.exports = async (ctx) => {
 
         await ctx.replyWithChatAction('typing');
 
-        // Парсим аргументы
         if (args.length >= 3) {
             if (!isNaN(parseInt(args[2]))) {
                 count = validateCount(args[2]);

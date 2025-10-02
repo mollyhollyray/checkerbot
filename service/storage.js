@@ -18,11 +18,57 @@ class Storage {
 
       if (fs.existsSync(config.DB_FILE)) {
         const data = JSON.parse(fs.readFileSync(config.DB_FILE, 'utf-8'));
-        this.repos = new Map(data);
-        log(`Загружено ${this.repos.size} репозиториев из хранилища`);
+        
+        if (Array.isArray(data)) {
+          this.repos = new Map(data);
+          this.owners = new Map();
+          log(`Загружено ${this.repos.size} репозиториев из старого формата хранилища`);
+        } else if (data && typeof data === 'object') {
+          this.repos = new Map(data.repos || []);
+          this.owners = new Map(data.owners || []);
+          log(`Загружено ${this.repos.size} репозиториев и ${this.owners.size} владельцев из хранилища`);
+        }
       }
+    if (this.owners.size === 0 && this.repos.size > 0) {
+      this.restoreOwnersFromRepos();
+    }
+  } catch (error) {
+    log(`Ошибка инициализации хранилища: ${error.message}`);
+  }
+}
+
+    restoreOwnersFromRepos() {
+    try {
+      let restoredCount = 0;
+      
+      for (const [repoKey, repoData] of this.repos) {
+        if (!repoData.trackedIndividually && repoData.fromOwner) {
+          const owner = repoData.fromOwner;
+          if (!this.owners.has(owner)) {
+            this.owners.set(owner, {
+              addedAt: repoData.addedAt || new Date().toISOString(),
+              lastChecked: Date.now(),
+              repoCount: 0
+            });
+            restoredCount++;
+          }
+        }
+      }
+      
+      for (const owner of this.owners.keys()) {
+        const ownerRepos = this.getReposByOwner(owner);
+        this.updateOwnerReposCount(owner, ownerRepos.length);
+      }
+      
+      if (restoredCount > 0) {
+        this.save();
+        log(`Восстановлено ${restoredCount} владельцев из репозиториев`);
+      }
+      
+      return restoredCount;
     } catch (error) {
-      log(`Ошибка инициализации хранилища: ${error.message}`);
+      log(`Ошибка восстановления владельцев: ${error.message}`);
+      return 0;
     }
   }
 
@@ -37,18 +83,23 @@ class Storage {
         lastReleaseName: repoData.lastReleaseName,
         lastReleaseUrl: repoData.lastReleaseUrl
     };
-}
+  }
   
-getFirstRepo() {
+  getFirstRepo() {
     const repos = this.getRepos();
     return repos.length > 0 ? repos[0][0] : null;
   }
 
   save() {
     try {
+      const data = {
+        repos: [...this.repos],
+        owners: [...this.owners]
+      };
+      
       fs.writeFileSync(
         config.DB_FILE,
-        JSON.stringify([...this.repos], null, 2),
+        JSON.stringify(data, null, 2),
         'utf-8'
       );
       return true;
@@ -62,12 +113,12 @@ getFirstRepo() {
     return [...this.repos];
   }
 
-addOwner(owner) {
+  addOwner(owner) {
     const ownerKey = owner.toLowerCase();
     if (!this.owners.has(ownerKey)) {
       this.owners.set(ownerKey, {
         addedAt: new Date().toISOString(),
-        lastChecked: 0,
+        lastChecked: Date.now(),
         repoCount: 0
       });
       return this.save();
@@ -104,7 +155,7 @@ addOwner(owner) {
     return false;
   }
 
-addRepo(owner, repo, data) {
+  addRepo(owner, repo, data) {
     const key = `${owner}/${repo}`.toLowerCase();
     this.repos.set(key, {
       defaultBranch: data.defaultBranch || 'main',
@@ -120,7 +171,7 @@ addRepo(owner, repo, data) {
     return this.save();
   }
 
-   addRepoFromOwner(owner, repo, data) {
+  addRepoFromOwner(owner, repo, data) {
     const key = `${owner}/${repo}`.toLowerCase();
     this.repos.set(key, {
       defaultBranch: data.defaultBranch || 'main',
@@ -130,8 +181,9 @@ addRepo(owner, repo, data) {
       lastCommitTime: data.lastCommitTime,
       lastReleaseTag: data.lastReleaseTag || null,
       lastReleaseTime: data.lastReleaseTime || 0,
-      trackedIndividually: false, // Не отдельно отслеживаемый
+      trackedIndividually: false,
       fromOwner: owner.toLowerCase(),
+      isEmpty: data.isEmpty || false,
       ...data
     });
     return this.save();
@@ -144,7 +196,7 @@ addRepo(owner, repo, data) {
     });
   }
 
-   isRepoIndividuallyTracked(owner, repo) {
+  isRepoIndividuallyTracked(owner, repo) {
     const key = `${owner}/${repo}`.toLowerCase();
     return this.repos.has(key) && this.repos.get(key).trackedIndividually;
   }
@@ -174,8 +226,7 @@ addRepo(owner, repo, data) {
         return this.save();
     }
     return false;
-}
-
+  }
 
   updateRepoCommit(owner, repo, commitData) {
     const key = `${owner}/${repo}`.toLowerCase();

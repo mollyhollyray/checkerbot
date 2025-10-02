@@ -5,13 +5,11 @@ const { promisify } = require('util');
 
 const execAsync = promisify(exec);
 
-// Функция для выполнения команд PM2 с обработкой "успешных ошибок"
 async function executePM2Command(command, timeout = 15000) {
     try {
         const result = await execAsync(command, { timeout });
         return { success: true, output: result.stdout || result.stderr };
     } catch (error) {
-        // PM2 часто возвращает ошибки даже при успешном выполнении
         if (error.stdout && error.stdout.includes('restarting') ||
             error.stdout && error.stdout.includes('reloaded') ||
             error.stdout && error.stdout.includes('stopped') ||
@@ -23,13 +21,12 @@ async function executePM2Command(command, timeout = 15000) {
 }
 
 module.exports = async (ctx) => {
-    let command; // Объявляем переменную здесь, чтобы она была доступна в catch
+    let command;
     
     try {
         const args = ctx.message.text.split(' ').slice(1);
-        command = args[0]; // Присваиваем значение
+        command = args[0];
 
-        // Проверяем права (только админ)
         if (ctx.from.id !== config.ADMIN_USER_ID) {
             return await sendMessage(
                 ctx,
@@ -102,7 +99,6 @@ module.exports = async (ctx) => {
             );
         }
 
-        // Проверяем специфичные сообщения PM2
         let message;
         if (output.includes('restarting') || output.includes('reloaded')) {
             message = `<b>✅ Бот успешно перезагружен</b>\n\n` +
@@ -147,7 +143,6 @@ module.exports = async (ctx) => {
             errorMessage += `<code>${error.message}</code>`;
         }
 
-        // Добавляем подсказку для restart (теперь command доступна)
         if (command === 'restart') {
             errorMessage += `\n\n💡 <i>Но бот вероятно перезагрузился успешно</i>`;
         }

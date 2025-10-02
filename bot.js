@@ -31,6 +31,8 @@ const commands = {
   ownerstats: require('./commands/ownerstats'),
 };
 
+global.botInstance = bot;
+
 Object.entries(commands).forEach(([name, handler]) => {
   bot.command(name, handler);
   console.log(`[INFO] Команда загружена: /${name}`);
@@ -47,12 +49,9 @@ function setupFileWatcher() {
             const fileName = path.basename(filePath, '.js');
             log(`Обнаружено изменение файла: ${fileName}`, 'info');
             
-            // Автоматическая перезагрузка команды
             try {
                 const commandPath = `./commands/${fileName}`;
                 delete require.cache[require.resolve(commandPath)];
-                
-                // Обновляем команду в боте
                 const newCommand = require(commandPath);
                 commands[fileName] = newCommand;
                 
@@ -101,7 +100,6 @@ bot.action(/^help_/, async (ctx) => {
       branches: '/branches combatextended-continued/combatextended',
       pr: '/pr',
       limits: '/limits',
-      status: '/status',
       pm2: '/pm2',
       reload: '/reload',
       add: '/add'
@@ -204,15 +202,19 @@ bot.action('add_repo_help', async (ctx) => {
 bot.action(/^quick_releases_(.+)_(.+)_(\d+)$/, async (ctx) => {
   try {
     const [_, owner, repo, limit] = ctx.match;
+    
     const fakeContext = {
       ...ctx,
+      from: ctx.callbackQuery.from,
       message: {
         text: `/releases ${owner}/${repo} ${limit}`,
         chat: ctx.callbackQuery.message.chat,
         from: ctx.callbackQuery.from
       },
-      bot: ctx.bot
+      bot: ctx.bot,
+      replyWithChatAction: ctx.replyWithChatAction?.bind(ctx)
     };
+    
     const releasesCmd = require('./commands/releases');
     await releasesCmd(fakeContext);
     await ctx.answerCbQuery();
@@ -222,7 +224,6 @@ bot.action(/^quick_releases_(.+)_(.+)_(\d+)$/, async (ctx) => {
   }
 });
 
-// Добавляем отдельные обработчики для новых команд
 bot.action('help_pm2', async (ctx) => {
   try {
     ctx.message = {
@@ -285,21 +286,112 @@ bot.action(/^list_owner_(.+)_(\d+)$/, async (ctx) => {
 });
 
 bot.action(/^list_main_(\d+)$/, async (ctx) => {
-    const page = parseInt(ctx.match[1]);
-    await executeListCommand(ctx, `list main ${page}`);
+    try {
+        const page = parseInt(ctx.match[1]);
+        
+        const fakeContext = {
+            ...ctx,
+            message: {
+                text: `/list ${page}`,
+                chat: ctx.callbackQuery.message.chat,
+                from: ctx.callbackQuery.from,
+                message_id: ctx.callbackQuery.message.message_id
+            },
+            callbackQuery: ctx.callbackQuery,
+            bot: ctx.bot,
+            replyWithChatAction: ctx.replyWithChatAction?.bind(ctx),
+            editMessageText: ctx.editMessageText?.bind(ctx),
+            telegram: ctx.telegram
+        };
+        
+        const listCmd = require('./commands/list');
+        await listCmd(fakeContext);
+        
+    } catch (error) {
+        console.error('List page callback error:', error);
+        await ctx.answerCbQuery('❌ Ошибка перехода по страницам');
+    }
 });
 
 bot.action(/^list_owner_([^_]+)_(\d+)$/, async (ctx) => {
-    const [_, owner, page] = ctx.match;
-    await executeListCommand(ctx, `list owner ${owner} ${page}`);
+    try {
+        const [_, owner, page] = ctx.match;
+        const pageNum = parseInt(page);
+        
+        const fakeContext = {
+            ...ctx,
+            message: {
+                text: `/list owner ${owner} ${pageNum}`,
+                chat: ctx.callbackQuery.message.chat,
+                from: ctx.callbackQuery.from,
+                message_id: ctx.callbackQuery.message.message_id
+            },
+            callbackQuery: ctx.callbackQuery,
+            bot: ctx.bot,
+            replyWithChatAction: ctx.replyWithChatAction?.bind(ctx),
+            editMessageText: ctx.editMessageText?.bind(ctx),
+            telegram: ctx.telegram
+        };
+        
+        const listCmd = require('./commands/list');
+        await listCmd(fakeContext);
+        
+    } catch (error) {
+        console.error('List owner callback error:', error);
+        await ctx.answerCbQuery('❌ Ошибка загрузки репозиториев владельца');
+    }
 });
 
 bot.action('list_owner_view', async (ctx) => {
-    await executeListCommand(ctx, 'list owner');
+    try {
+        const fakeContext = {
+            ...ctx,
+            message: {
+                text: '/list owner',
+                chat: ctx.callbackQuery.message.chat,
+                from: ctx.callbackQuery.from,
+                message_id: ctx.callbackQuery.message.message_id
+            },
+            callbackQuery: ctx.callbackQuery,
+            bot: ctx.bot,
+            replyWithChatAction: ctx.replyWithChatAction?.bind(ctx),
+            editMessageText: ctx.editMessageText?.bind(ctx),
+            telegram: ctx.telegram
+        };
+        
+        const listCmd = require('./commands/list');
+        await listCmd(fakeContext);
+        
+    } catch (error) {
+        console.error('List owner view callback error:', error);
+        await ctx.answerCbQuery('❌ Ошибка выбора владельца');
+    }
 });
 
 bot.action('list_stats', async (ctx) => {
-    await executeListCommand(ctx, 'list stats');
+    try {
+        const fakeContext = {
+            ...ctx,
+            message: {
+                text: '/list stats',
+                chat: ctx.callbackQuery.message.chat,
+                from: ctx.callbackQuery.from,
+                message_id: ctx.callbackQuery.message.message_id
+            },
+            callbackQuery: ctx.callbackQuery,
+            bot: ctx.bot,
+            replyWithChatAction: ctx.replyWithChatAction?.bind(ctx),
+            editMessageText: ctx.editMessageText?.bind(ctx),
+            telegram: ctx.telegram
+        };
+        
+        const listCmd = require('./commands/list');
+        await listCmd(fakeContext);
+        
+    } catch (error) {
+        console.error('List stats callback error:', error);
+        await ctx.answerCbQuery('❌ Ошибка загрузки статистики');
+    }
 });
 
 bot.action('list_current', async (ctx) => {
@@ -336,10 +428,10 @@ async function executeListCommand(ctx, command) {
                 text: `/${command}`,
                 chat: ctx.callbackQuery.message.chat,
                 from: ctx.callbackQuery.from,
-                message_id: ctx.callbackQuery.message.message_id // Передаем ID сообщения
+                message_id: ctx.callbackQuery.message.message_id 
             },
             bot: ctx.bot,
-            callbackQuery: ctx.callbackQuery, // Сохраняем callbackQuery
+            callbackQuery: ctx.callbackQuery, 
             replyWithChatAction: ctx.replyWithChatAction.bind(ctx)
         };
         
@@ -368,13 +460,19 @@ bot.action(/^prview_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) => {
       return;
     }
 
-    ctx.message = {
-      text: `/prview ${repoKey} ${prNumber}`,
-      chat: ctx.callbackQuery.message.chat
+    const fakeContext = {
+      ...ctx,
+      message: {
+        text: `/prview ${repoKey} ${prNumber}`,
+        chat: ctx.callbackQuery.message.chat,
+        from: ctx.callbackQuery.from  
+      },
+      bot: ctx.bot,
+      replyWithChatAction: ctx.replyWithChatAction?.bind(ctx)
     };
     
     const prviewCmd = require('./commands/prview');
-    await prviewCmd(ctx);
+    await prviewCmd(fakeContext);
     await ctx.answerCbQuery();
   } catch (error) {
     console.error('PR View callback error:', error);
@@ -391,20 +489,40 @@ bot.action(/^quick_last_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) =
       return;
     }
 
-    const repoKey = `${owner}/${repo}`;
+    const repoKey = `${owner}/${repo}`.toLowerCase();
     
     if (!storage.repoExists(owner, repo)) {
       await ctx.answerCbQuery('❌ Репозиторий не отслеживается');
       return;
     }
 
-    ctx.message = {
-      text: `/last ${repoKey} ${count}`,
-      chat: ctx.callbackQuery.message.chat
+    // Получаем данные репозитория из хранилища
+    const repoData = storage.repos.get(repoKey);
+    if (!repoData) {
+      await ctx.answerCbQuery('❌ Данные репозитория не найдены');
+      return;
+    }
+
+    // Используем правильную ветку из данных репозитория
+    const branch = repoData.branch || repoData.defaultBranch || 'master';
+    
+    console.log(`Quick last: ${repoKey}, branch: ${branch}, count: ${count}`);
+
+    // Создаем правильный контекст для команды
+    const fakeContext = {
+      ...ctx,
+      from: ctx.callbackQuery.from,
+      message: {
+        text: `/last ${owner}/${repo} ${branch} ${count}`,
+        chat: ctx.callbackQuery.message.chat,
+        from: ctx.callbackQuery.from
+      },
+      bot: ctx.bot,
+      replyWithChatAction: ctx.replyWithChatAction?.bind(ctx)
     };
     
     const lastCmd = require('./commands/last');
-    await lastCmd(ctx);
+    await lastCmd(fakeContext);
     await ctx.answerCbQuery();
   } catch (error) {
     console.error('Quick last callback error:', error);
@@ -421,20 +539,27 @@ bot.action(/^quick_branches_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ct
       return;
     }
 
-    const repoKey = `${owner}/${repo}`;
+    const repoKey = `${owner}/${repo}`.toLowerCase();
     
     if (!storage.repoExists(owner, repo)) {
       await ctx.answerCbQuery('❌ Репозиторий не отслеживается');
       return;
     }
 
-    ctx.message = {
-      text: `/branches ${repoKey} ${limit}`,
-      chat: ctx.callbackQuery.message.chat
+    const fakeContext = {
+      ...ctx,
+      from: ctx.callbackQuery.from,
+      message: {
+        text: `/branches ${owner}/${repo} ${limit}`,
+        chat: ctx.callbackQuery.message.chat,
+        from: ctx.callbackQuery.from
+      },
+      bot: ctx.bot,
+      replyWithChatAction: ctx.replyWithChatAction?.bind(ctx)
     };
     
     const branchesCmd = require('./commands/branches');
-    await branchesCmd(ctx);
+    await branchesCmd(fakeContext);
     await ctx.answerCbQuery();
   } catch (error) {
     console.error('Quick branches callback error:', error);
@@ -442,7 +567,7 @@ bot.action(/^quick_branches_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ct
   }
 });
 
-bot.action(/^quick_pr_(.+)_(.+)_(\d+)_(.+)$/, async (ctx) => {
+bot.action(/^quick_pr_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)_(.+)$/, async (ctx) => {
   try {
     const [_, owner, repo, limit, state] = ctx.match;
     
@@ -451,31 +576,29 @@ bot.action(/^quick_pr_(.+)_(.+)_(\d+)_(.+)$/, async (ctx) => {
       return;
     }
 
-    const repoKey = `${owner}/${repo}`;
+    const repoKey = `${owner}/${repo}`.toLowerCase();
     
-    // Создаем имитацию контекста для команды
     const fakeContext = {
       ...ctx,
+      from: ctx.callbackQuery.from,
       message: {
-        text: `/pr ${repoKey} ${state} ${limit}`,
+        text: `/pr ${owner}/${repo} ${state} ${limit}`,
         chat: ctx.callbackQuery.message.chat,
         from: ctx.callbackQuery.from
       },
       bot: ctx.bot,
-      replyWithChatAction: ctx.replyWithChatAction.bind(ctx)
+      replyWithChatAction: ctx.replyWithChatAction?.bind(ctx)
     };
     
     const prCmd = require('./commands/pr');
     await prCmd(fakeContext);
     await ctx.answerCbQuery();
-    
   } catch (error) {
     console.error('Quick PR callback error:', error);
     await ctx.answerCbQuery('❌ Ошибка загрузки PR');
   }
 });
 
-// Подтверждение удаления из уведомления
 bot.action(/^confirm_remove_(.+)$/, async (ctx) => {
   const repoKey = ctx.match[1];
   
@@ -505,7 +628,6 @@ bot.action(/^confirm_remove_(.+)$/, async (ctx) => {
 });
 
 
-// Финальное удаление
 bot.action(/^final_remove_(.+)$/, async (ctx) => {
   const repoKey = ctx.match[1];
   const [owner, repo] = repoKey.split('/');
@@ -558,9 +680,14 @@ bot.catch((error) => {
 bot.launch().then(() => {
     console.log('[INFO] Бот успешно запущен');
     storage.initStorage();
+    
+    if (storage.getTrackedOwners().length === 0 && storage.getRepos().length > 0) {
+      console.log('[INFO] Восстанавливаем владельцев из репозиториев...');
+      storage.restoreOwnersFromRepos();
+    }
+    
     setupFileWatcher();
 });
-
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 

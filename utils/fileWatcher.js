@@ -27,7 +27,6 @@ class FileWatcher {
                 const fileName = path.basename(filePath);
                 log(`Файл изменен: ${fileName}`, 'info');
                 
-                // Автоматически перезагружаем бота через PM2
                 try {
                     await execAsync('pm2 reload bot --silent', { timeout: 10000 });
                     log('Бот перезагружен автоматически', 'info');

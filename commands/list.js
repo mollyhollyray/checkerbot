@@ -21,7 +21,6 @@ function getRepoWord(count) {
     ];
 }
 
-// Функция для форматирования времени активности
 function formatTimeAgo(timestamp) {
     if (!timestamp) return 'никогда';
     
@@ -50,14 +49,45 @@ function formatTimeAgo(timestamp) {
     }
 }
 
+async function safeAnswerCbQuery(ctx) {
+    if (ctx.answerCbQuery && typeof ctx.answerCbQuery === 'function') {
+        await ctx.answerCbQuery();
+    }
+}
+
 module.exports = async (ctx) => {
     try {
-        const args = ctx.message.text.split(' ').slice(1);
+        let args;
+        
+        if (ctx.message && ctx.message.text) {
+            args = ctx.message.text.split(' ').slice(1);
+        } else if (ctx.callbackQuery) {
+            if (ctx.message && ctx.message.text) {
+                args = ctx.message.text.split(' ').slice(1);
+            } else {
+                const callbackData = ctx.callbackQuery.data;
+                if (callbackData.startsWith('list_')) {
+                    const dataParts = callbackData.replace('list_', '').split('_');
+                    args = dataParts;
+                } else {
+                    args = [callbackData];
+                }
+            }
+        } else {
+            return await sendMessage(
+                ctx,
+                '📭 Нет отслеживаемых репозиториев\n\nДобавьте первый: /add owner/repo',
+                { parse_mode: 'HTML' }
+            );
+        }
+
         const mode = args[0] || 'main';
         const param = args[1];
-        const page = parseInt(param) || 1;
+        const page = parseInt(args[2]) || 1;
 
-        await ctx.replyWithChatAction('typing');
+        if (ctx.replyWithChatAction && typeof ctx.replyWithChatAction === 'function') {
+            await ctx.replyWithChatAction('typing');
+        }
         
         const allRepos = storage.getRepos();
         const trackedOwners = storage.getTrackedOwners();
@@ -65,36 +95,32 @@ module.exports = async (ctx) => {
         if (allRepos.length === 0) {
             return await sendMessage(
                 ctx,
-                '📭 Нет отслеживаемых репозиториев\n\n' +
-                'Добавьте первый: /add owner/repo',
+                '📭 Нет отслеживаемых репозиториев\n\nДобавьте первый: /add owner/repo',
                 { parse_mode: 'HTML' }
             );
         }
 
-        const messageId = ctx.message?.message_id;
-
         switch (mode) {
             case 'owner':
                 if (!param) {
-                    return await showOwnerSelection(ctx, allRepos, trackedOwners, messageId);
+                    return await showOwnerSelection(ctx, allRepos, trackedOwners);
                 }
-                return await showOwnerRepos(ctx, param, page, messageId);
+                return await showOwnerRepos(ctx, param, page);
                 
             case 'stats':
-                return await showStats(ctx, allRepos, trackedOwners, messageId);
+                return await showStats(ctx, allRepos, trackedOwners);
                 
             default:
-                return await showMainList(ctx, allRepos, trackedOwners, page, messageId);
+                return await showMainList(ctx, allRepos, trackedOwners, page);
         }
 
     } catch (error) {
         logger.error('List command failed:', error);
-        await sendMessage(ctx, '❌ Ошибка при получении списка', { parse_mode: 'HTML' });
+        await safeAnswerCbQuery(ctx);
     }
 };
 
-// Главный список
-async function showMainList(ctx, allRepos, trackedOwners, page, editMessageId = null) {
+async function showMainList(ctx, allRepos, trackedOwners, page) {
     const totalPages = Math.ceil(allRepos.length / REPOS_PER_PAGE);
     const currentPage = Math.max(1, Math.min(page, totalPages));
     const startIdx = (currentPage - 1) * REPOS_PER_PAGE;
@@ -102,7 +128,6 @@ async function showMainList(ctx, allRepos, trackedOwners, page, editMessageId = 
     
     const reposToShow = allRepos.slice(startIdx, endIdx);
 
-    // Статистика в начале
     const individualRepos = allRepos.filter(([_, repo]) => repo.trackedIndividually);
     const autoRepos = allRepos.filter(([_, repo]) => !repo.trackedIndividually);
 
@@ -118,7 +143,6 @@ async function showMainList(ctx, allRepos, trackedOwners, page, editMessageId = 
 
     reposToShow.forEach(([repoKey, repoData]) => {
         const [owner, repo] = repoKey.split('/');
-        
         const emoji = repoData.trackedIndividually ? '🔸' : '🔹';
         
         message += `${emoji} <b>${owner}/</b><code>${repo}</code>\n`;
@@ -126,56 +150,44 @@ async function showMainList(ctx, allRepos, trackedOwners, page, editMessageId = 
         message += `   🆔 Коммит: ${repoData.lastCommitSha?.slice(0, 7) || '----'}\n`;
         message += `   📅 Добавлен: ${formatDate(repoData.addedAt)}\n`;
         message += `   ⏱ Активность: ${formatTimeAgo(repoData.lastCommitTime)}\n\n`;
-        
         message += `   /last ${repoKey} ${repoData.branch} 3\n`;
         message += '━━━━━━━━━━━━━━━━━━\n';
     });
 
     const keyboard = [];
     
-    // Навигация
     if (totalPages > 1) {
         const navRow = [];
         if (currentPage > 1) {
-            navRow.push({
-                text: "◀️ Назад",
-                callback_data: `list_main_${currentPage - 1}`
-            });
+            navRow.push({ text: "◀️ Назад", callback_data: `list_main_${currentPage - 1}` });
         }
-        navRow.push({
-            text: `${currentPage}/${totalPages}`,
-            callback_data: 'list_current'
-        });
+        navRow.push({ text: `${currentPage}/${totalPages}`, callback_data: 'list_current' });
         if (currentPage < totalPages) {
-            navRow.push({
-                text: "Вперед ▶️",
-                callback_data: `list_main_${currentPage + 1}`
-            });
+            navRow.push({ text: "Вперед ▶️", callback_data: `list_main_${currentPage + 1}` });
         }
         keyboard.push(navRow);
     }
 
-    // Дополнительные действия
     keyboard.push([
         { text: "👥 По владельцам", callback_data: "list_owner_view" },
         { text: "📊 Детальная статистика", callback_data: "list_stats" }
     ]);
 
-    // Редактируем существующее сообщение или отправляем новое
-    if (editMessageId && ctx.callbackQuery) {
+    if (ctx.callbackQuery && ctx.editMessageText) {
         try {
             await ctx.editMessageText(message, {
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
                 reply_markup: { inline_keyboard: keyboard }
             });
-            await ctx.answerCbQuery();
+            await safeAnswerCbQuery(ctx);
         } catch (error) {
             await sendMessage(ctx, message, {
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
                 reply_markup: { inline_keyboard: keyboard }
             });
+            await safeAnswerCbQuery(ctx);
         }
     } else {
         await sendMessage(ctx, message, {
@@ -186,8 +198,7 @@ async function showMainList(ctx, allRepos, trackedOwners, page, editMessageId = 
     }
 }
 
-// Просмотр репозиториев владельца
-async function showOwnerRepos(ctx, owner, page, editMessageId = null) {
+async function showOwnerRepos(ctx, owner, page) {
     const ownerRepos = storage.getReposByOwner(owner);
     const allRepos = storage.getRepos().filter(([key]) => key.startsWith(owner + '/'));
     
@@ -204,22 +215,26 @@ async function showOwnerRepos(ctx, owner, page, editMessageId = null) {
     message += `📄 Страница: ${currentPage}/${totalPages}\n`;
     message += '━━━━━━━━━━━━━━━━━━\n\n';
 
-    reposToShow.forEach(([repoKey, repoData]) => {
-        const [_, repo] = repoKey.split('/');
-        
-        message += `📦 <b>${repo}</b>\n`;
-        message += `   🌿 Ветка: ${repoData.branch}\n`;
-        message += `   🆔 Коммит: ${repoData.lastCommitSha?.slice(0, 7) || '----'}\n`;
-        message += `   📅 Добавлен: ${formatDate(repoData.addedAt)}\n`;
-        message += `   ⏱ Активность: ${formatTimeAgo(repoData.lastCommitTime)}\n\n`;
-        
-        message += `   /last ${repoKey} ${repoData.branch} 3\n`;
-        message += '━━━━━━━━━━━━━━━━━━\n';
-    });
+    if (ownerRepos.length === 0) {
+        message += `📭 У владельца <b>${owner}</b> нет авто-отслеживаемых репозиториев\n\n`;
+        message += `💡 <i>Репозитории могут быть добавлены индивидуально через /add</i>`;
+    } else {
+        reposToShow.forEach(([repoKey, repoData]) => {
+            const [_, repo] = repoKey.split('/');
+            
+            message += `📦 <b>${repo}</b>\n`;
+            message += `   🌿 Ветка: ${repoData.branch}\n`;
+            message += `   🆔 Коммит: ${repoData.lastCommitSha?.slice(0, 7) || '----'}\n`;
+            message += `   📅 Добавлен: ${formatDate(repoData.addedAt)}\n`;
+            message += `   ⏱ Активность: ${formatTimeAgo(repoData.lastCommitTime)}\n\n`;
+            
+            message += `   /last ${repoKey} ${repoData.branch} 3\n`;
+            message += '━━━━━━━━━━━━━━━━━━\n';
+        });
+    }
 
     const keyboard = [];
     
-    // Навигация
     if (totalPages > 1) {
         const navRow = [];
         if (currentPage > 1) {
@@ -241,26 +256,25 @@ async function showOwnerRepos(ctx, owner, page, editMessageId = null) {
         keyboard.push(navRow);
     }
 
-    // Возврат
     keyboard.push([
         { text: "↩️ К общему списку", callback_data: "list_main_1" }
     ]);
 
-    // Редактируем или отправляем новое
-    if (editMessageId && ctx.callbackQuery) {
+    if (ctx.callbackQuery && ctx.editMessageText) {
         try {
             await ctx.editMessageText(message, {
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
                 reply_markup: { inline_keyboard: keyboard }
             });
-            await ctx.answerCbQuery();
+            await safeAnswerCbQuery(ctx);
         } catch (error) {
             await sendMessage(ctx, message, {
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
                 reply_markup: { inline_keyboard: keyboard }
             });
+            await safeAnswerCbQuery(ctx);
         }
     } else {
         await sendMessage(ctx, message, {
@@ -271,9 +285,7 @@ async function showOwnerRepos(ctx, owner, page, editMessageId = null) {
     }
 }
 
-// Выбор владельца
-async function showOwnerSelection(ctx, allRepos, trackedOwners, editMessageId = null) {
-    // Группируем по владельцам
+async function showOwnerSelection(ctx, allRepos, trackedOwners) {
     const owners = {};
     allRepos.forEach(([key, data]) => {
         const [owner] = key.split('/');
@@ -285,13 +297,14 @@ async function showOwnerSelection(ctx, allRepos, trackedOwners, editMessageId = 
     message += '━━━━━━━━━━━━━━━━━━\n\n';
 
     Object.keys(owners).sort().forEach(owner => {
-        message += `🔹 <b>${owner}</b> - ${owners[owner]} ${getRepoWord(owners[owner])}\n`;
+        const isTracked = trackedOwners.includes(owner.toLowerCase());
+        const trackingStatus = isTracked ? '🔹' : '🔸';
+        message += `${trackingStatus} <b>${owner}</b> - ${owners[owner]} ${getRepoWord(owners[owner])}\n`;
     });
 
     const keyboard = [];
     const ownerKeys = Object.keys(owners).sort();
     
-    // Создаем кнопки владельцев
     for (let i = 0; i < ownerKeys.length; i += 2) {
         const row = [];
         if (ownerKeys[i]) {
@@ -306,28 +319,30 @@ async function showOwnerSelection(ctx, allRepos, trackedOwners, editMessageId = 
                 callback_data: `list_owner_${ownerKeys[i + 1]}_1`
             });
         }
-        keyboard.push(row);
+        if (row.length > 0) {
+            keyboard.push(row);
+        }
     }
 
     keyboard.push([
         { text: "↩️ Назад", callback_data: "list_main_1" }
     ]);
 
-    // Редактируем или отправляем новое
-    if (editMessageId && ctx.callbackQuery) {
+    if (ctx.callbackQuery && ctx.editMessageText) {
         try {
             await ctx.editMessageText(message, {
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
                 reply_markup: { inline_keyboard: keyboard }
             });
-            await ctx.answerCbQuery();
+            await safeAnswerCbQuery(ctx);
         } catch (error) {
             await sendMessage(ctx, message, {
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
                 reply_markup: { inline_keyboard: keyboard }
             });
+            await safeAnswerCbQuery(ctx);
         }
     } else {
         await sendMessage(ctx, message, {
@@ -338,8 +353,7 @@ async function showOwnerSelection(ctx, allRepos, trackedOwners, editMessageId = 
     }
 }
 
-// Статистика
-async function showStats(ctx, allRepos, trackedOwners, editMessageId = null) {
+async function showStats(ctx, allRepos, trackedOwners) {
     const individualRepos = allRepos.filter(([_, repo]) => repo.trackedIndividually);
     const autoRepos = allRepos.filter(([_, repo]) => !repo.trackedIndividually);
     
@@ -365,7 +379,6 @@ async function showStats(ctx, allRepos, trackedOwners, editMessageId = null) {
     message += `🔹 Авто-отслеживание: ${autoRepos.length}\n`;
     message += `👥 Отслеживаемых владельцев: ${trackedOwners.length}\n\n`;
 
-    // Топ владельцев
     const owners = {};
     allRepos.forEach(([key]) => {
         const [owner] = key.split('/');
@@ -383,33 +396,69 @@ async function showStats(ctx, allRepos, trackedOwners, editMessageId = null) {
         message += `${medal} ${owner} - ${count} ${getRepoWord(count)}\n`;
     });
 
-    // Активность
+    const activityPercent = allRepos.length > 0 ? Math.round((recentRepos / allRepos.length) * 100) : 0;
+    
     message += '\n⚡ <b>Активность репозиториев:</b>\n';
-    message += `🟢 Активные (<7 дн.): ${activeRepos}\n`;
-    message += `🟡 Недавние (<30 дн.): ${recentRepos - activeRepos}\n`;
-    message += `🔴 Неактивные (>30 дн.): ${inactiveRepos}\n`;
-    message += `📈 Общая активность: ${Math.round((recentRepos / allRepos.length) * 100)}%\n`;
+    message += `🟢 Активные (&lt;7 дн.): ${activeRepos}\n`;
+    message += `🟡 Недавние (&lt;30 дн.): ${recentRepos - activeRepos}\n`;
+    message += `🔴 Неактивные (&gt;30 дн.): ${inactiveRepos}\n`;
+    message += `📈 Общая активность: ${activityPercent}%\n`;
+
+    const nowDate = new Date();
+    const today = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
+    const reposAddedToday = allRepos.filter(([_, repo]) => {
+        const addedDate = new Date(repo.addedAt);
+        const addedDay = new Date(addedDate.getFullYear(), addedDate.getMonth(), addedDate.getDate()).getTime();
+        return addedDay === today;
+    }).length;
+
+    const reposAddedThisWeek = allRepos.filter(([_, repo]) => {
+        const addedDate = new Date(repo.addedAt);
+        return (now - addedDate.getTime()) <= (7 * 24 * 60 * 60 * 1000);
+    }).length;
+
+    message += '\n📅 <b>Недавно добавленные:</b>\n';
+    message += `📥 Сегодня: ${reposAddedToday}\n`;
+    message += `📥 За неделю: ${reposAddedThisWeek}\n`;
+
+    const defaultBranches = {};
+    allRepos.forEach(([_, repo]) => {
+        const branch = repo.branch || repo.defaultBranch || 'main';
+        if (!defaultBranches[branch]) defaultBranches[branch] = 0;
+        defaultBranches[branch]++;
+    });
+
+    const topBranches = Object.entries(defaultBranches)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    message += '\n🌿 <b>Популярные ветки:</b>\n';
+    topBranches.forEach(([branch, count], index) => {
+        message += `${index + 1}. ${branch} - ${count}\n`;
+    });
+
+    message += `\n🕒 <i>Обновлено: ${new Date().toLocaleString('ru-RU')}</i>`;
 
     const keyboard = [[
         { text: "↩️ К списку", callback_data: "list_main_1" },
         { text: "🔄 Обновить", callback_data: "list_stats" }
     ]];
 
-    // Редактируем или отправляем новое
-    if (editMessageId && ctx.callbackQuery) {
+    if (ctx.callbackQuery) {
         try {
             await ctx.editMessageText(message, {
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
                 reply_markup: { inline_keyboard: keyboard }
             });
-            await ctx.answerCbQuery();
+            await safeAnswerCbQuery(ctx);
         } catch (error) {
             await sendMessage(ctx, message, {
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
                 reply_markup: { inline_keyboard: keyboard }
             });
+            await safeAnswerCbQuery(ctx);
         }
     } else {
         await sendMessage(ctx, message, {

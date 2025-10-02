@@ -28,7 +28,6 @@ function validateLimit(limit) {
 
 module.exports = async (ctx) => {
     try {
-        // Новый код для обработки как message, так и callback
         let args;
         if (ctx.message && ctx.message.text) {
             args = ctx.message.text.split(' ').filter(arg => arg.trim());
@@ -44,7 +43,6 @@ module.exports = async (ctx) => {
             args: args
         });
 
-        // Проверяем достаточно ли аргументов
         if (args.length < 2 || !args[1].includes('/')) {
             const defaultRepo = storage.getFirstRepo();
             if (!defaultRepo) {
@@ -57,7 +55,6 @@ module.exports = async (ctx) => {
                 if (ctx.callbackQuery) await ctx.answerCbQuery();
                 return;
             }
-            // Добавляем defaultRepo как второй аргумент
             args[1] = defaultRepo;
         }
 

@@ -16,7 +16,6 @@ module.exports = async (ctx) => {
                     );
                 }
         
-        // Валидация дополнительных аргументов
         if (args.length > 0 && args[0] !== 'все' && args[0] !== 'all') {
             return await sendMessage(
                 ctx,

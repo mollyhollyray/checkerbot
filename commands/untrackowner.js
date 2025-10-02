@@ -25,11 +25,9 @@ module.exports = async (ctx) => {
       );
     }
 
-    // Удаляем владельца и его репозитории
     storage.removeOwner(owner);
     const repos = storage.getReposByOwner(owner);
     
-    // Удаляем только те репозитории, которые не отслеживаются индивидуально
     for (const [repoKey, repoData] of repos) {
       if (!repoData.trackedIndividually) {
         const [repoOwner, repoName] = repoKey.split('/');

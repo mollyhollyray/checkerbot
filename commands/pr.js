@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { sendMessage, escapeMarkdown } = require('../utils/message');
+const { sendMessage, escapeHtml } = require('../utils/message');
 const logger = require('../utils/logger');
 const config = require('../config');
 const storage = require('../service/storage');
@@ -33,9 +33,32 @@ function sanitizeFilterValue(value) {
     return value.replace(/[^a-zA-Z0-9_\-\.\s]/g, '');
 }
 
+function formatDate(dateString) {
+    if (!dateString) return 'неизвестно';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function getStatusEmoji(state, merged) {
+    if (state === 'open') return '🟢';
+    if (merged) return '🟣';
+    return '🔴';
+}
+
+function getStatusText(state, merged) {
+    if (state === 'open') return 'Open';
+    if (merged) return 'Merged';
+    return 'Closed';
+}
+
 module.exports = async (ctx) => {
     try {
-        // Получаем текст команды из message или callback
         let args;
         if (ctx.message && ctx.message.text) {
             args = ctx.message.text.split(' ').filter(arg => arg.trim());
@@ -44,23 +67,23 @@ module.exports = async (ctx) => {
         } else {
             return sendMessage(
                 ctx,
-                '❌ *Неверный формат команды*',
-                { parse_mode: 'MarkdownV2' }
+                '❌ <b>Неверный формат команды</b>',
+                { parse_mode: 'HTML' }
             );
         }
         
         if (args.length < 2 || !isValidRepoFormat(args[1])) {
             return sendMessage(
                 ctx,
-                '❌ *Формат команды*\n\n' +
-                '▸ Используйте: `/pr owner/repo [state=open] [limit=5] [label:tag] [author:name]`\n' +
-                '▸ *Состояния:* `open` (по умолчанию), `closed`, `all`\n' +
-                '▸ *Лимит:* максимум 15 PR\n' +
-                '▸ *Примеры:*\n' +
-                '   `/pr facebook/react`\n' +
-                '   `/pr vuejs/core closed 10`\n' +
-                '   `/pr axios/axios all 5 label:bug author:john`',
-                { parse_mode: 'MarkdownV2' }
+                '<b>❌ Формат команды</b>\n\n' +
+                '▸ Используйте: <code>/pr owner/repo [state=open] [limit=5] [label:tag] [author:name]</code>\n' +
+                '▸ <b>Состояния:</b> <code>open</code> (по умолчанию), <code>closed</code>, <code>all</code>\n' +
+                '▸ <b>Лимит:</b> максимум 15 PR\n' +
+                '▸ <b>Примеры:</b>\n' +
+                '   <code>/pr facebook/react</code>\n' +
+                '   <code>/pr vuejs/core closed 10</code>\n' +
+                '   <code>/pr axios/axios all 5 label:bug author:john</code>',
+                { parse_mode: 'HTML' }
             );
         }
 
@@ -71,8 +94,8 @@ module.exports = async (ctx) => {
         if (owner.length > 50 || repo.length > 100) {
             return sendMessage(
                 ctx,
-                '❌ Слишком длинное имя владельца или репозитория',
-                { parse_mode: 'MarkdownV2' }
+                '❌ <b>Слишком длинное имя владельца или репозитория</b>',
+                { parse_mode: 'HTML' }
             );
         }
 
@@ -83,7 +106,6 @@ module.exports = async (ctx) => {
         let label = null;
         let author = null;
 
-        // Парсим аргументы с валидацией
         args.slice(2).forEach(arg => {
             if (['open', 'closed', 'all'].includes(arg)) {
                 state = validateState(arg);
@@ -125,53 +147,61 @@ module.exports = async (ctx) => {
             prCache.set(cacheKey, pullRequests);
         }
 
-        // Проверяем есть ли PR
         if (!pullRequests || pullRequests.length === 0) {
-            let message = `🔍 *В ${escapeMarkdown(repoKey)} нет PR*`;
+            let message = `🔍 <b>В ${escapeHtml(repoKey)} нет PR</b>`;
             
             if (state !== 'open') {
-                message += ` со статусом \`${state}\``;
+                message += ` со статусом <code>${state}</code>`;
             }
             if (label) {
-                message += ` с меткой \`${escapeMarkdown(label)}\``;
+                message += ` с меткой <code>${escapeHtml(label)}</code>`;
             }
             if (author) {
-                message += ` от автора \`${escapeMarkdown(author)}\``;
+                message += ` от автора <code>${escapeHtml(author)}</code>`;
             }
             
-            message += '\n\n💡 *Попробуйте:*\n';
-            message += `• Изменить статус: \`/pr ${repoKey} all\`\n`;
-            message += `• Убрать фильтры: \`/pr ${repoKey}\`\n`;
+            message += '\n\n💡 <b>Попробуйте:</b>\n';
+            message += `• Изменить статус: <code>/pr ${repoKey} all</code>\n`;
+            message += `• Убрать фильтры: <code>/pr ${repoKey}</code>\n`;
             message += `• Проверить другой репозиторий`;
             
-            return sendMessage(ctx, message, { parse_mode: 'MarkdownV2' });
+            return sendMessage(ctx, message, { parse_mode: 'HTML' });
         }
 
-        let header = `📌 *Pull Requests в ${escapeMarkdown(repoKey)}*\n` +
-                    `┣ *Фильтры:* \`${state}\`` +
-                    (label ? ` + \`${escapeMarkdown(label)}\`` : '') +
-                    (author ? ` + автор:\`${escapeMarkdown(author)}\`` : '') + '\n' +
-                    `┗ *Найдено:* ${pullRequests.length}\n\n`;
+        let message = `📌 <b>Pull Requests в ${escapeHtml(repoKey)}</b>\n`;
+        message += `┣ <b>Фильтры:</b> <code>${state}</code>`;
+        if (label) message += ` + <code>${escapeHtml(label)}</code>`;
+        if (author) message += ` + автор:<code>${escapeHtml(author)}</code>`;
+        message += `\n┗ <b>Найдено:</b> ${pullRequests.length}\n\n`;
+        message += '━━━━━━━━━━━━━━━━━━\n\n';
 
-        await sendMessage(ctx, header, { parse_mode: 'MarkdownV2' });
+        pullRequests.forEach((pr, index) => {
+            const emoji = getStatusEmoji(pr.state, pr.merged);
+            const status = getStatusText(pr.state, pr.merged);
+            const labels = pr.labels.map(l => `<code>${escapeHtml(l.name)}</code>`).join(', ');
+            const updatedAt = formatDate(pr.updated_at);
 
-        for (const pr of pullRequests) {
-            const emoji = pr.state === 'open' ? '🟢' : pr.merged ? '🟣' : '🔴';
-            const status = pr.state === 'open' ? 'Open' : pr.merged ? 'Merged' : 'Closed';
-            const labels = pr.labels.map(l => `\`${escapeMarkdown(l.name)}\``).join(', ');
+            message += `${emoji} <b>PR #${pr.number}: ${escapeHtml(pr.title)}</b>\n`;
+            message += `┣ <b>Автор:</b> <a href="${pr.user.html_url}">@${escapeHtml(pr.user.login)}</a>\n`;
+            message += `┣ <b>Состояние:</b> ${status}\n`;
+            message += `┣ <b>Обновлён:</b> ${updatedAt}\n`;
+            if (labels) {
+                message += `┣ <b>Метки:</b> ${labels}\n`;
+            }
+            message += `┗ <a href="${pr.html_url}">🔗 Ссылка на PR</a>\n\n`;
 
-            const prMessage = `${emoji} *PR #${pr.number}: ${escapeMarkdown(pr.title)}*\n` +
-                             `┣ *Автор:* [${escapeMarkdown(pr.user.login)}](${pr.user.html_url})\n` +
-                             `┣ *Состояние:* ${status}\n` +
-                             `┣ *Обновлён:* ${new Date(pr.updated_at).toLocaleString('ru-RU')}\n` +
-                             `${labels ? `┣ *Метки:* ${labels}\n` : ''}` +
-                             `┗ [Ссылка](${pr.html_url})`;
+            if (index < pullRequests.length - 1) {
+                message += '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n\n';
+            }
+        });
 
-            await sendMessage(ctx, prMessage, { 
-                parse_mode: 'MarkdownV2',
-                disable_web_page_preview: true
-            });
-        }
+        message += '━━━━━━━━━━━━━━━━━━\n';
+        message += `💡 <i>Для детального просмотра: <code>/prview ${repoKey} [номер]</code></i>`;
+
+        await sendMessage(ctx, message, { 
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+        });
 
     } catch (error) {
         logger.error(`PR Error: ${error.message}`);
@@ -189,8 +219,8 @@ module.exports = async (ctx) => {
 
         await sendMessage(
             ctx,
-            `❌ *Ошибка:* ${escapeMarkdown(errorMsg)}`,
-            { parse_mode: 'MarkdownV2' }
+            `❌ <b>Ошибка:</b> ${escapeHtml(errorMsg)}`,
+            { parse_mode: 'HTML' }
         );
     }
 };

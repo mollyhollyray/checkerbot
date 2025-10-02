@@ -3,7 +3,6 @@ const config = require('../config');
 const fs = require('fs');
 const path = require('path');
 
-// Глобальная ссылка на экземпляр бота
 let botInstance = null;
 
 function setBotInstance(bot) {
@@ -18,26 +17,21 @@ async function reloadCommand(commandName) {
             return { success: false, error: 'File not found' };
         }
 
-        // 1. Очищаем кэш
         delete require.cache[require.resolve(fullPath)];
         
-        // 2. Перезагружаем модуль
         const newCommand = require(fullPath);
         
-        // 3. Удаляем старую команду из бота
         const commandHandler = botInstance?.command?.handlers?.find(
             h => h.toString().includes(commandName)
         );
         
         if (commandHandler) {
-            // Сложная магия с внутренностями Telegraf
             const index = botInstance.command.handlers.indexOf(commandHandler);
             if (index > -1) {
                 botInstance.command.handlers.splice(index, 1);
             }
         }
         
-        // 4. Регистрируем новую команду
         botInstance.command(commandName, newCommand);
         
         return { success: true };
@@ -73,7 +67,6 @@ module.exports = async (ctx) => {
         const target = args[0].toLowerCase();
         
         if (target === 'all') {
-            // Лучше использовать PM2 для полной перезагрузки
             const { exec } = require('child_process');
             const { promisify } = require('util');
             const execAsync = promisify(exec);
