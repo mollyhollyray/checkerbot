@@ -16,6 +16,28 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+// Добавить в utils/message.js или создать новый файл utils/helpers.js
+function safeCallbackData(text) {
+  if (!text) return '';
+  return text
+    .replace(/\./g, '@DOT@')  // Заменяем точки
+    .replace(/\//g, '_')      // Заменяем слеши
+    .replace(/[^a-zA-Z0-9_@-]/g, '') // Удаляем все остальные спецсимволы
+    .substring(0, 64);        // Ограничиваем длину
+}
+
+function unsafeCallbackData(text) {
+  if (!text) return '';
+  return text
+    .replace(/@DOT@/g, '.')   // Восстанавливаем точки
+    .replace(/_/g, '/');      // Восстанавливаем слеши
+}
+
+module.exports = {
+  safeCallbackData,
+  unsafeCallbackData
+};
+
 async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   let bot, chatId, text, finalOptions;
   

@@ -482,7 +482,10 @@ bot.action(/^prview_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)$/, async (ctx) => {
 
 bot.action(/^quick_last_([a-zA-Z0-9_-]+)_([a-zA-Z0-9_-]+)_(\d+)_(.+)$/, async (ctx) => {
   try {
-    const [_, owner, repo, count, branch] = ctx.match;
+    const [_, owner, repo, count, safeBranch] = ctx.match;
+    
+    // Восстанавливаем оригинальное имя ветки (заменяем _ обратно на / и .)
+    const branch = safeBranch.replace(/_/g, '/').replace(/@DOT@/g, '.');
     
     if (!owner || !repo) {
       await ctx.answerCbQuery('❌ Неверные параметры');

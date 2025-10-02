@@ -1,6 +1,6 @@
 const github = require('./github');
 const storage = require('./storage');
-const logger = require('../utils/logger');  // Правильный импорт
+const logger = require('../utils/logger');
 
 module.exports = {
   async checkAllRepos(bot) {
@@ -27,8 +27,8 @@ module.exports = {
         context: 'REPOS_STATS',
         checkId,
         totalRepos: repos.length,
-        individualRepos: repos.filter(([_, repo]) => repo.trackedIndividually).length,
-        autoTrackedRepos: repos.filter(([_, repo]) => !repo.trackedIndividually).length,
+        individualRepos: repos.filter(([_, repoData]) => repoData.trackedIndividually).length,
+        autoTrackedRepos: repos.filter(([_, repoData]) => !repoData.trackedIndividually).length,
         timestamp: new Date().toLocaleString('ru-RU')
       });
 
@@ -43,18 +43,7 @@ module.exports = {
 
       const updates = [];
       const releaseUpdates = [];
-
-      if (repoData.trackedIndividually) {
-            // Проверяем новые ветки только для индивидуально отслеживаемых репозиториев
-            const branchUpdates = await this.checkNewBranches(bot, owner, repo, repoData);
-            if (branchUpdates.length > 0) {
-              logger.log(`🌿 ОБНАРУЖЕНО ${branchUpdates.length} НОВЫХ ВЕТОК: ${repoKey}`, 'info', {
-                context: 'BRANCH_UPDATES_FOUND',
-                repoKey,
-                newBranchesCount: branchUpdates.length
-              });
-            }
-          }
+      const branchUpdates = [];
 
       // === ПРОВЕРКА ИНДИВИДУАЛЬНЫХ РЕПОЗИТОРИЕВ ===
       logger.log(`🔍 НАЧИНАЕМ ПРОВЕРКУ ${repos.length} РЕПОЗИТОРИЕВ`, 'info', {
@@ -265,6 +254,20 @@ module.exports = {
             }
           }
 
+          // === ПРОВЕРКА НОВЫХ ВЕТОК ===
+          if (repoData.trackedIndividually) {
+            // Проверяем новые ветки только для индивидуально отслеживаемых репозиториев
+            const newBranchUpdates = await this.checkNewBranches(bot, owner, repo, repoData);
+            if (newBranchUpdates.length > 0) {
+              branchUpdates.push(...newBranchUpdates);
+              logger.log(`🌿 ОБНАРУЖЕНО ${newBranchUpdates.length} НОВЫХ ВЕТОК: ${repoKey}`, 'info', {
+                context: 'BRANCH_UPDATES_FOUND',
+                repoKey,
+                newBranchesCount: newBranchUpdates.length
+              });
+            }
+          }
+
           successfulChecks++;
 
           const repoDuration = Date.now() - repoStartTime;
@@ -426,6 +429,7 @@ module.exports = {
           failedChecks,
           updatesFound: updates.length,
           releasesFound: releaseUpdates.length,
+          branchesFound: branchUpdates.length,
           trackedOwners: trackedOwners.length,
           newReposFromOwners
         },
@@ -441,7 +445,7 @@ module.exports = {
         }
       });
 
-      return [...updates, ...releaseUpdates];
+      return [...updates, ...releaseUpdates, ...branchUpdates];
     } catch (error) {
       const totalDuration = Date.now() - startTime;
       logger.error(`💥 КРИТИЧЕСКАЯ ОШИБКА ПРОВЕРКИ [${checkId}]`, error, {
@@ -462,6 +466,7 @@ module.exports = {
     }
   },
 
+  // Проверка новых веток в репозитории
   async checkNewBranches(bot, owner, repo, repoData) {
     try {
       const repoKey = `${owner}/${repo}`;
@@ -559,10 +564,15 @@ module.exports = {
   },
 
   // Уведомление о новой ветке
-  async sendNewBranchNotification(bot, branchUpdate) {
+async sendNewBranchNotification(bot, branchUpdate) {
     try {
       const { repoKey, branch, commit } = branchUpdate;
       const [owner, repo] = repoKey.split('/');
+      
+      // Экранируем специальные символы в callback_data
+      const safeOwner = owner.replace(/[^a-zA-Z0-9_-]/g, '');
+      const safeRepo = repo.replace(/[^a-zA-Z0-9_-]/g, '');
+      const safeBranch = branch.replace(/[^a-zA-Z0-9_\-\.\/]/g, '_');
       
       const commitDate = new Date(commit.commit.committer.date);
       const commitMessage = commit.commit.message.split('\n')[0];
@@ -584,17 +594,17 @@ module.exports = {
           [
             {
               text: "📝 Посмотреть коммиты",
-              callback_data: `quick_last_${owner}_${repo}_3_${branch}`
+              callback_data: `quick_last_${safeOwner}_${safeRepo}_3_${safeBranch}`
             },
             {
               text: "🌿 Все ветки",
-              callback_data: `quick_branches_${owner}_${repo}_20`
+              callback_data: `quick_branches_${safeOwner}_${safeRepo}_20`
             }
           ],
           [
             {
               text: "❌ Удалить репозиторий",
-              callback_data: `confirm_remove_${repoKey}`
+              callback_data: `confirm_remove_${safeOwner}_${safeRepo}`
             }
           ]
         ]
@@ -734,7 +744,6 @@ module.exports = {
       const [owner, repo] = update.repoKey.split('/');
       const buttons = [];
       const repoData = storage.repos.get(update.repoKey.toLowerCase());
-    console.log(`Creating keyboard for: ${update.repoKey}, branch: ${repoData?.branch}, default: ${repoData?.defaultBranch}`);
       
       // Кнопка просмотра PR (если есть номер PR)
       const prMatch = update.message.match(/#(\d+)/);
