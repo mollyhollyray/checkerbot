@@ -19,56 +19,21 @@ class Storage {
       if (fs.existsSync(config.DB_FILE)) {
         const data = JSON.parse(fs.readFileSync(config.DB_FILE, 'utf-8'));
         
+        // Обрабатываем старый формат данных (только массив репозиториев)
         if (Array.isArray(data)) {
+          // Старый формат - только репозитории
           this.repos = new Map(data);
-          this.owners = new Map();
+          this.owners = new Map(); // Владельцы не сохранялись
           log(`Загружено ${this.repos.size} репозиториев из старого формата хранилища`);
         } else if (data && typeof data === 'object') {
+          // Новый формат - с владельцами
           this.repos = new Map(data.repos || []);
           this.owners = new Map(data.owners || []);
           log(`Загружено ${this.repos.size} репозиториев и ${this.owners.size} владельцев из хранилища`);
         }
       }
-    if (this.owners.size === 0 && this.repos.size > 0) {
-      this.restoreOwnersFromRepos();
-    }
-  } catch (error) {
-    log(`Ошибка инициализации хранилища: ${error.message}`);
-  }
-}
-
-    restoreOwnersFromRepos() {
-    try {
-      let restoredCount = 0;
-      
-      for (const [repoKey, repoData] of this.repos) {
-        if (!repoData.trackedIndividually && repoData.fromOwner) {
-          const owner = repoData.fromOwner;
-          if (!this.owners.has(owner)) {
-            this.owners.set(owner, {
-              addedAt: repoData.addedAt || new Date().toISOString(),
-              lastChecked: Date.now(),
-              repoCount: 0
-            });
-            restoredCount++;
-          }
-        }
-      }
-      
-      for (const owner of this.owners.keys()) {
-        const ownerRepos = this.getReposByOwner(owner);
-        this.updateOwnerReposCount(owner, ownerRepos.length);
-      }
-      
-      if (restoredCount > 0) {
-        this.save();
-        log(`Восстановлено ${restoredCount} владельцев из репозиториев`);
-      }
-      
-      return restoredCount;
     } catch (error) {
-      log(`Ошибка восстановления владельцев: ${error.message}`);
-      return 0;
+      log(`Ошибка инициализации хранилища: ${error.message}`);
     }
   }
 
@@ -165,6 +130,8 @@ class Storage {
       lastCommitTime: data.lastCommitTime,
       lastReleaseTag: data.lastReleaseTag || null,
       lastReleaseTime: data.lastReleaseTime || 0,
+      trackedBranches: data.trackedBranches || [data.branch || data.defaultBranch || 'main'], // Сохраняем известные ветки
+      lastBranchesCheck: data.lastBranchesCheck || 0,
       trackedIndividually: true,
       ...data
     });
@@ -181,9 +148,11 @@ class Storage {
       lastCommitTime: data.lastCommitTime,
       lastReleaseTag: data.lastReleaseTag || null,
       lastReleaseTime: data.lastReleaseTime || 0,
-      trackedIndividually: false,
+      trackedBranches: data.trackedBranches || [data.branch || data.defaultBranch || 'main'], // Сохраняем известные ветки
+      lastBranchesCheck: data.lastBranchesCheck || 0,
+      trackedIndividually: false, // Не отдельно отслеживаемый
       fromOwner: owner.toLowerCase(),
-      isEmpty: data.isEmpty || false,
+      isEmpty: data.isEmpty || false, // Добавляем флаг пустого репозитория
       ...data
     });
     return this.save();
@@ -245,6 +214,33 @@ class Storage {
       return this.save();
     }
     return false;
+  }
+
+  // Новый метод для обновления списка веток
+  updateRepoBranches(owner, repo, branches, newBranches = []) {
+    const key = `${owner}/${repo}`.toLowerCase();
+    if (!this.repos.has(key)) return false;
+
+    const repoData = this.repos.get(key);
+    const newData = {
+      ...repoData,
+      trackedBranches: branches,
+      lastBranchesCheck: Date.now()
+    };
+
+    // Сохраняем только если есть изменения или новые ветки
+    if (JSON.stringify(repoData.trackedBranches) !== JSON.stringify(branches) || newBranches.length > 0) {
+      this.repos.set(key, newData);
+      return this.save();
+    }
+    return false;
+  }
+
+  // Получить список известных веток репозитория
+  getRepoBranches(owner, repo) {
+    const key = `${owner}/${repo}`.toLowerCase();
+    if (!this.repos.has(key)) return [];
+    return this.repos.get(key).trackedBranches || [];
   }
 
   repoExists(owner, repo) {
