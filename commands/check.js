@@ -6,15 +6,26 @@ const storage = require('../service/storage');
 
 module.exports = async (ctx) => {
     try {
-        const args = ctx.message.text.split(' ').slice(1);
+        // Добавляем проверку на наличие message
+
+         const commandText = ctx.message?.text || (ctx.callbackQuery && '/check');
+        
+        if (!commandText) {
+            return await sendMessage(
+                ctx,
+                '❌ Ошибка: не удалось определить команду'
+            );
+        }
+
+        const args = commandText.split(' ').slice(1);
 
         if (ctx.from.id !== config.ADMIN_USER_ID) {
-                    return await sendMessage(
-                        ctx,
-                        '❌ Эта команда доступна только администратору',
-                        { parse_mode: 'HTML' }
-                    );
-                }
+            return await sendMessage(
+                ctx,
+                '❌ Эта команда доступна только администратору',
+                { parse_mode: 'HTML' }
+            );
+        }
         
         if (args.length > 0 && args[0] !== 'все' && args[0] !== 'all') {
             return await sendMessage(
@@ -25,7 +36,10 @@ module.exports = async (ctx) => {
             );
         }
 
-        await ctx.replyWithChatAction('typing');
+        // Добавляем безопасный вызов replyWithChatAction
+        if (ctx.replyWithChatAction && typeof ctx.replyWithChatAction === 'function') {
+            await ctx.replyWithChatAction('typing');
+        }
         
         const reposCount = storage.getRepos().length;
         if (reposCount === 0) {

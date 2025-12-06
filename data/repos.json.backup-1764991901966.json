@@ -1,0 +1,797 @@
+{
+  "repos": [
+    [
+      "mollyhollyray/checkerbot",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-11-12T19:50:25.595Z",
+        "lastCommitSha": "f47ab4535e393a591cc89f1816112212bf67ef0d",
+        "lastCommitTime": 1760040110000,
+        "lastReleaseTag": null,
+        "lastReleaseTime": 0,
+        "trackedBranches": [
+          "main",
+          "ntba"
+        ],
+        "lastBranchesCheck": 1764990302213,
+        "trackedIndividually": false,
+        "fromOwner": "mollyhollyray",
+        "isEmpty": false
+      }
+    ],
+    [
+      "flowseal/zapret-discord-youtube",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-11-12T19:55:14.039Z",
+        "lastCommitSha": "0bb36b834508057ddbfa313e6508d5120b1609f4",
+        "lastCommitTime": 1761930133000,
+        "lastReleaseTag": "1.9.0b",
+        "lastReleaseTime": 1761761326000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": true,
+        "lastReleaseName": "v1.9.0b",
+        "lastReleaseUrl": "https://github.com/Flowseal/zapret-discord-youtube/releases/tag/1.9.0b"
+      }
+    ],
+    [
+      "mwittrien/betterdiscordaddons",
+      {
+        "defaultBranch": "master",
+        "branch": "master",
+        "addedAt": "2025-11-12T20:46:29.057Z",
+        "lastCommitSha": "d8ce6a0e6121d6080a0d77e1cbd8c1a0210e1ffd",
+        "lastCommitTime": 1764870138000,
+        "lastReleaseTag": null,
+        "lastReleaseTime": 0,
+        "trackedBranches": [
+          "master"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": true,
+        "lastCommitMessage": "Update 0BDFDB.plugin.js"
+      }
+    ],
+    [
+      "combatextended-continued/combatextended",
+      {
+        "defaultBranch": "Development",
+        "branch": "Development",
+        "addedAt": "2025-11-12T22:07:38.942Z",
+        "lastCommitSha": "7fcfd91ac294736e4955cc9bb07611323885dea0",
+        "lastCommitTime": 1764907349000,
+        "lastReleaseTag": "v1.6.7.0.0",
+        "lastReleaseTime": 1758437799000,
+        "trackedBranches": [
+          "AddGlobalSuppressionMulti",
+          "AmmoForHMS_Aurora",
+          "ArmorUtilityRework",
+          "Assorted-Fixes",
+          "Attachments-S2",
+          "Backports",
+          "Breadbox2k19-Thog's-AR",
+          "BurkaShieldFix",
+          "CIWS_DrawPos_Of_Target",
+          "CIWS_Skyfaller_Targeting_Fix",
+          "CIWS_Targeting_Improvments",
+          "CIWS",
+          "Caulaflower-RangeErrorFix",
+          "ChildrenHeight",
+          "Cluster-Bombs",
+          "ConfigurableExplosionArmorPen",
+          "Development",
+          "DrawAtFix",
+          "Drone-Patching",
+          "Early_Intercept_Fix",
+          "Fix-Unequipping-Weapon",
+          "Generic-Mortar-Fix",
+          "GenericAmmoUserForAutoLoader",
+          "GuidedProjectile_HeightFix",
+          "Implement-NonSnap",
+          "Leaning-Pawns",
+          "ListAmmoUser",
+          "LoadoutGenName4Weapon",
+          "LowVisibilityWarmupPenalty",
+          "Misc-Fixes",
+          "More-Grenade-Work",
+          "Move-Charge-Sniper",
+          "NoBaseBulletOverwrite",
+          "Patch-MORoyalty",
+          "PatchOpsConditional_GenericAmmo",
+          "RebuildWallArmorFix",
+          "ReloadCasings-Implementation",
+          "Rimatomics_Improvements",
+          "SmarterAI",
+          "SmokeGrenade-Rework",
+          "Stalingrad---Weapons",
+          "SuppressionToggle",
+          "Textures-Missile",
+          "ThermalSights",
+          "TurretTopRenderExtended",
+          "UnusedTextures",
+          "Update-MedievalOverhaul",
+          "VFEs_Improvements",
+          "Weapon-Trait-Code-Work",
+          "WeaponDeteoriation"
+        ],
+        "lastBranchesCheck": 1764990305425,
+        "trackedIndividually": true,
+        "lastReleaseName": "v1.6.7.0.0",
+        "lastReleaseUrl": "https://github.com/CombatExtended-Continued/CombatExtended/releases/tag/v1.6.7.0.0",
+        "lastCommitMessage": "Merge pull request #4329 from SaltyKarl/isptweaks\n\nInspiration Tweaks patch"
+      }
+    ],
+    [
+      "mollyhollyray/streamwatcher",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:05:07.046Z",
+        "lastCommitSha": "d7b4e2868ca42895fd80aa8115c843bd6b1f7c06",
+        "lastCommitTime": 1764121797000,
+        "lastReleaseTag": null,
+        "lastReleaseTime": 0,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "mollyhollyray",
+        "isEmpty": false
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaexpandedframework",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:11.074Z",
+        "lastCommitSha": "199a6292c6d51e7689b8d4c40987aee672d69f50",
+        "lastCommitTime": 1764919906000,
+        "lastReleaseTag": "231125",
+        "lastReleaseTime": 1763905024000,
+        "trackedBranches": [
+          "feature/VTempE_pipenetclass",
+          "feature/ref_update",
+          "main",
+          "mvcf-bettertargetting"
+        ],
+        "lastBranchesCheck": 1764990906121,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaExpandedFramework/releases/tag/231125"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaquestsexpanded-ancients",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:11.707Z",
+        "lastCommitSha": "bd55bfd98e7318ca0b7e56a85fd2ae05bb6f2cca",
+        "lastCommitTime": 1764956021000,
+        "lastReleaseTag": null,
+        "lastReleaseTime": 0,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false
+      }
+    ],
+    [
+      "vanilla-expanded/vanillafurnitureexpanded-security",
+      {
+        "defaultBranch": "master",
+        "branch": "master",
+        "addedAt": "2025-12-06T03:12:12.392Z",
+        "lastCommitSha": "8ea5c3f671851c758e2a9313e921a370a6ac81db",
+        "lastCommitTime": 1764808920000,
+        "lastReleaseTag": "v1.0",
+        "lastReleaseTime": 1721314359000,
+        "trackedBranches": [
+          "master"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaFurnitureExpanded-Security/releases/tag/v1.0"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillagravshipexpanded",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:13.006Z",
+        "lastCommitSha": "7871d3079fcee0fc9a33163c4bd9f5ac8bb94354",
+        "lastCommitTime": 1764767647000,
+        "lastReleaseTag": "v1.0",
+        "lastReleaseTime": 1763904976000,
+        "trackedBranches": [
+          "compact-biotech",
+          "main",
+          "scaffold-props-cutscene"
+        ],
+        "lastBranchesCheck": 1764990909863,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaGravshipExpanded/releases/tag/v1.0"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillafurnitureexpanded-architect",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:13.632Z",
+        "lastCommitSha": "1fe1cf6d0c7a3a12473b2409e87477f15deb1a4b",
+        "lastCommitTime": 1764592319000,
+        "lastReleaseTag": "v1.05",
+        "lastReleaseTime": 1763972868000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release Version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaFurnitureExpanded-Architect/releases/tag/v1.05"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillafactionsexpanded-pirates",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:14.344Z",
+        "lastCommitSha": "b90a8b27275202063f1638ef3ae25e988f9fa754",
+        "lastCommitTime": 1759083119000,
+        "lastReleaseTag": "v3.07",
+        "lastReleaseTime": 1753192061000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaFactionsExpanded-Pirates/releases/tag/v3.07"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaweaponsexpanded-bioferrite",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:15.056Z",
+        "lastCommitSha": "c1f17998b1842044994dfbbce14f9b25d0efcc8e",
+        "lastCommitTime": 1750023764000,
+        "lastReleaseTag": "v1.0",
+        "lastReleaseTime": 1750023895000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release Version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaWeaponsExpanded-Bioferrite/releases/tag/v1.0"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillapsycastsexpanded",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:15.905Z",
+        "lastCommitSha": "b94bf69bc30e780c24642e98429c205891a1a91a",
+        "lastCommitTime": 1763357985000,
+        "lastReleaseTag": "v2.03",
+        "lastReleaseTime": 1760167807000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaPsycastsExpanded/releases/tag/v2.03"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillavehiclesexpanded-tier3",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:16.592Z",
+        "lastCommitSha": "270ef4f8f48230ca04694da7e314bd1d623489ae",
+        "lastCommitTime": 1764396742000,
+        "lastReleaseTag": null,
+        "lastReleaseTime": 0,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false
+      }
+    ],
+    [
+      "vanilla-expanded/vanillavehiclesexpanded",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:17.205Z",
+        "lastCommitSha": "a7222115becd9ddf2423c15abae989788b7dc9ef",
+        "lastCommitTime": 1764396362000,
+        "lastReleaseTag": null,
+        "lastReleaseTime": 0,
+        "trackedBranches": [
+          "feature/event-based-ticking",
+          "main"
+        ],
+        "lastBranchesCheck": 1764990916305,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false
+      }
+    ],
+    [
+      "vanilla-expanded/vanillafactionsexpanded-insectoids2",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:17.888Z",
+        "lastCommitSha": "9389209220b5519e2bc5d889aeed1e65a031e5cb",
+        "lastCommitTime": 1764340083000,
+        "lastReleaseTag": "v3.05",
+        "lastReleaseTime": 1757155178000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release Version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaFactionsExpanded-Insectoids2/releases/tag/v3.05"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaideologyexpanded-memes",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:18.685Z",
+        "lastCommitSha": "64379007a43f912f4488f2a1c0abe04a676b3969",
+        "lastCommitTime": 1764263791000,
+        "lastReleaseTag": "v4.06",
+        "lastReleaseTime": 1764265192000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaIdeologyExpanded-Memes/releases/tag/v4.06"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillafactionsexpanded-medieval2",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:19.359Z",
+        "lastCommitSha": "26d0d0edb049b802873f481c552a813bfd6e3a2e",
+        "lastCommitTime": 1763873958000,
+        "lastReleaseTag": "v1.02",
+        "lastReleaseTime": 1752430401000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release Version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaFactionsExpanded-Medieval2/releases/tag/v1.02"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillafactionsexpanded-deserters",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:19.970Z",
+        "lastCommitSha": "0663f2c3af33a7b674a2a1b719570c338720f89a",
+        "lastCommitTime": 1763873840000,
+        "lastReleaseTag": "v1.2",
+        "lastReleaseTime": 1741171303000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaFactionsExpanded-Deserters/releases/tag/v1.2"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaideologyexpanded-animatheme",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:20.683Z",
+        "lastCommitSha": "d88698bdb67a0d47ea6b929910744e35a7a36436",
+        "lastCommitTime": 1763339150000,
+        "lastReleaseTag": "v1.0",
+        "lastReleaseTime": 1749904457000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaIdeologyExpanded-AnimaTheme/releases/tag/v1.0"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaracesexpanded-archon",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:21.662Z",
+        "lastCommitSha": "48b45d292c3ce59abf5f1a42ea24242eebc0a938",
+        "lastCommitTime": 1763316393000,
+        "lastReleaseTag": "v2.03",
+        "lastReleaseTime": 1755275694000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release Version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaRacesExpanded-Archon/releases/tag/v2.03"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaquestsexpanded-deadlife",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:22.692Z",
+        "lastCommitSha": "065999b05c3f152776124e4ac033696408719b8c",
+        "lastCommitTime": 1763239035000,
+        "lastReleaseTag": "v1.0",
+        "lastReleaseTime": 1750083113000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release Version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaQuestsExpanded-Deadlife/releases/tag/v1.0"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaracesexpanded-fungoid",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:23.368Z",
+        "lastCommitSha": "c09b9a9e4cdefac2f323f27364b572046e1eae5c",
+        "lastCommitTime": 1763055820000,
+        "lastReleaseTag": "v2.02",
+        "lastReleaseTime": 1761919705000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaRacesExpanded-Fungoid/releases/tag/v2.02"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillafurnitureexpanded-farming",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:24.208Z",
+        "lastCommitSha": "e9dc94d063c7d93e8f3c2183c6c35d8839b13707",
+        "lastCommitTime": 1763032299000,
+        "lastReleaseTag": "v2.01",
+        "lastReleaseTime": 1763032357000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaFurnitureExpanded-Farming/releases/tag/v2.01"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaplantsexpanded-mushrooms",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:24.880Z",
+        "lastCommitSha": "7f7cb00f6bd79c6c4c7a6e5c137ce1f8ecd3d90a",
+        "lastCommitTime": 1762765379000,
+        "lastReleaseTag": "v3.03",
+        "lastReleaseTime": 1762765472000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release Version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaPlantsExpanded-Mushrooms/releases/tag/v3.03"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaplantsexpanded",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:25.734Z",
+        "lastCommitSha": "1d64cbe34a98585a29e87678dc37ea4c144f3999",
+        "lastCommitTime": 1762762798000,
+        "lastReleaseTag": "v3.03",
+        "lastReleaseTime": 1762765540000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release Version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaPlantsExpanded/releases/tag/v3.03"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaarmourexpanded",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:26.360Z",
+        "lastCommitSha": "cbf24554bdc1a61269ecf2a6d3782e495f0a4173",
+        "lastCommitTime": 1762183247000,
+        "lastReleaseTag": "v2.01",
+        "lastReleaseTime": 1753194392000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaArmourExpanded/releases/tag/v2.01"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaracesexpanded-sanguophage",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:27.028Z",
+        "lastCommitSha": "b5b4a8a1def55aeedd671bf0e112891f0a8857ff",
+        "lastCommitTime": 1762016821000,
+        "lastReleaseTag": "v3.01",
+        "lastReleaseTime": 1760085133000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaRacesExpanded-Sanguophage/releases/tag/v3.01"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillacookingexpanded",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:27.699Z",
+        "lastCommitSha": "4424056abfe629937bc6606a4804b9bba9693b4b",
+        "lastCommitTime": 1761946941000,
+        "lastReleaseTag": "v4.09",
+        "lastReleaseTime": 1761946988000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release Version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaCookingExpanded/releases/tag/v4.09"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillabrewingexpanded-coffees-and-teas",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:28.472Z",
+        "lastCommitSha": "1a48102c1514afda62297cc5a36983524ea46f6c",
+        "lastCommitTime": 1761830401000,
+        "lastReleaseTag": "v4.04",
+        "lastReleaseTime": 1761830447000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaBrewingExpanded-Coffees-and-Teas/releases/tag/v4.04"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaracesexpanded-lycanthrope",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:29.508Z",
+        "lastCommitSha": "dbfe2b1e75310a3851fa0176ceb5981d1810c1e5",
+        "lastCommitTime": 1760085690000,
+        "lastReleaseTag": "v3.04",
+        "lastReleaseTime": 1760085723000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaRacesExpanded-Lycanthrope/releases/tag/v3.04"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillafactionsexpanded-empire",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:30.369Z",
+        "lastCommitSha": "5c53954a5d41ed5be506b39a8e300f563fde8c85",
+        "lastCommitTime": 1761160501000,
+        "lastReleaseTag": "v2.02",
+        "lastReleaseTime": 1749995729000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaFactionsExpanded-Empire/releases/tag/v2.02"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillaracesexpanded-waster",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:31.160Z",
+        "lastCommitSha": "b9d2fbbe35c59054313c7404c121c322130a9592",
+        "lastCommitTime": 1761111940000,
+        "lastReleaseTag": "v2.0",
+        "lastReleaseTime": 1749994774000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaRacesExpanded-Waster/releases/tag/v2.0"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillacookingexpanded-bakery",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:31.805Z",
+        "lastCommitSha": "6d15b77767c620f807c4a5049faff95f1328d8bc",
+        "lastCommitTime": 1760979292000,
+        "lastReleaseTag": "v1.0",
+        "lastReleaseTime": 1760970847000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release Version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaCookingExpanded-Bakery/releases/tag/v1.0"
+      }
+    ],
+    [
+      "vanilla-expanded/vanillanutrientpasteexpanded",
+      {
+        "defaultBranch": "main",
+        "branch": "main",
+        "addedAt": "2025-12-06T03:12:32.462Z",
+        "lastCommitSha": "a968ffb6029a3daf335fb509660d8ae67c7a5e25",
+        "lastCommitTime": 1760853322000,
+        "lastReleaseTag": "v2.03",
+        "lastReleaseTime": 1760853419000,
+        "trackedBranches": [
+          "main"
+        ],
+        "lastBranchesCheck": 0,
+        "trackedIndividually": false,
+        "fromOwner": "vanilla-expanded",
+        "isEmpty": false,
+        "lastReleaseName": "RimWorld Release version",
+        "lastReleaseUrl": "https://github.com/Vanilla-Expanded/VanillaNutrientPasteExpanded/releases/tag/v2.03"
+      }
+    ]
+  ],
+  "owners": [
+    [
+      "mollyhollyray",
+      {
+        "addedAt": "2025-11-12T19:50:25.005Z",
+        "lastChecked": 1764991202783,
+        "repoCount": 0
+      }
+    ],
+    [
+      "vanilla-expanded",
+      {
+        "addedAt": "2025-12-06T03:12:10.527Z",
+        "lastChecked": 1764991202786,
+        "repoCount": 0
+      }
+    ]
+  ]
+}

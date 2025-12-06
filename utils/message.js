@@ -16,27 +16,48 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
-// Добавить в utils/message.js или создать новый файл utils/helpers.js
 function safeCallbackData(text) {
   if (!text) return '';
   return text
-    .replace(/\./g, '@DOT@')  // Заменяем точки
-    .replace(/\//g, '_')      // Заменяем слеши
-    .replace(/[^a-zA-Z0-9_@-]/g, '') // Удаляем все остальные спецсимволы
-    .substring(0, 64);        // Ограничиваем длину
+    .replace(/\./g, '_DOT_')
+    .replace(/\//g, '_SLASH_')
+    .replace(/@/g, '_AT_')
+    .replace(/:/g, '_COLON_')
+    .replace(/#/g, '_HASH_')
+    .replace(/\?/g, '_QUESTION_')
+    .replace(/&/g, '_AND_')
+    .replace(/=/g, '_EQUALS_')
+    .replace(/%/g, '_PERCENT_')
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_-]/g, '')
+    .substring(0, 64);
 }
 
 function unsafeCallbackData(text) {
   if (!text) return '';
   return text
-    .replace(/@DOT@/g, '.')   // Восстанавливаем точки
-    .replace(/_/g, '/');      // Восстанавливаем слеши
+    .replace(/_DOT_/g, '.')
+    .replace(/_SLASH_/g, '/')
+    .replace(/_AT_/g, '@')
+    .replace(/_COLON_/g, ':')
+    .replace(/_HASH_/g, '#')
+    .replace(/_QUESTION_/g, '?')
+    .replace(/_AND_/g, '&')
+    .replace(/_EQUALS_/g, '=')
+    .replace(/_PERCENT_/g, '%');
 }
 
-module.exports = {
-  safeCallbackData,
-  unsafeCallbackData
-};
+function createSafeCallback(prefix, ...params) {
+  const safeParams = params.map(param => safeCallbackData(String(param)));
+  return `${prefix}_${safeParams.join('_')}`;
+}
+
+function parseSafeCallback(callbackData) {
+  const parts = callbackData.split('_');
+  const prefix = parts[0];
+  const params = parts.slice(1).map(unsafeCallbackData);
+  return { prefix, params };
+}
 
 async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   let bot, chatId, text, finalOptions;
@@ -70,6 +91,7 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
     parse_mode = 'HTML',
     disable_web_page_preview = true,
     retryCount = 2,
+    timeout = 30000,
     ...otherOptions
   } = finalOptions;
 
@@ -80,11 +102,17 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
       formattedText = escapeMarkdown(text);
     }
 
-    await bot.telegram.sendMessage(chatId, formattedText, {
+    const sendPromise = bot.telegram.sendMessage(chatId, formattedText, {
       parse_mode,
       disable_web_page_preview,
       ...otherOptions
     });
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout sending message')), timeout);
+    });
+
+    await Promise.race([sendPromise, timeoutPromise]);
     return true;
   } catch (error) {
     logger.error(`Ошибка отправки сообщения: ${error.message}`);
@@ -97,7 +125,8 @@ async function sendMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
       });
     }
 
-    if (retryCount > 0) {
+    if (retryCount > 0 && !error.message.includes('Timeout')) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
       return sendMessage(bot, chatId, text, {
         ...finalOptions,
         retryCount: retryCount - 1
@@ -125,12 +154,17 @@ async function sendLongMessage(ctxOrBot, chatIdOrText, textOrOptions, options) {
   }
   
   for (const chunk of chunks) {
-    await sendMessage(ctxOrBot, chatIdOrText, chunk, {
+    const success = await sendMessage(ctxOrBot, chatIdOrText, chunk, {
       ...(typeof textOrOptions === 'object' ? textOrOptions : {}),
       ...(options || {})
     });
+    
+    if (!success) {
+      logger.error('Не удалось отправить часть длинного сообщения');
+    }
+    
     if (chunks.length > 1) {
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 }
@@ -139,5 +173,9 @@ module.exports = {
   sendMessage,
   escapeMarkdown,
   sendLongMessage,
-  escapeHtml
+  escapeHtml,
+  safeCallbackData,
+  unsafeCallbackData,
+  createSafeCallback,
+  parseSafeCallback
 };
