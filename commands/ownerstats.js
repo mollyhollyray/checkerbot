@@ -1,4 +1,4 @@
-const storage = require('../service/storage');
+const storage = require('../service/storage-mongo');
 const { sendMessage, sendLongMessage } = require('../utils/message');
 
 module.exports = async (ctx) => {

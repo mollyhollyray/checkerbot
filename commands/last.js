@@ -1,7 +1,7 @@
 const { getDefaultBranch, fetchCommitsWithNumbers, checkBranchExists } = require('../service/github');
 const { sendMessage, escapeHtml } = require('../utils/message');
 const logger = require('../utils/logger');
-const storage = require('../service/storage');
+const storage = require('../service/storage-mongo');
 const config = require('../config');
 
 function isValidRepoFormat(repoInput) {

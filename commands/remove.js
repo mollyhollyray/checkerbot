@@ -1,6 +1,6 @@
 const { log, logError } = require('../utils/logger');
 const { sendMessage } = require('../utils/message');
-const storage = require('../service/storage');
+const storage = require('../service/storage-mongo');
 const { escapeHtml } = require('../utils/message');
 const config = require('../config');
 

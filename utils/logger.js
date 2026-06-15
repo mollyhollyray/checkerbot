@@ -34,6 +34,12 @@ function getTimestamp() {
 }
 
 function logToFile(level, message, context = {}) {
+  const allowedLevels = ['error','warn','info','debug']; // порядок важен
+  const configLevel = config.LOG_LEVEL || 'info';
+  const levelIndex = allowedLevels.indexOf(level);
+  const configIndex = allowedLevels.indexOf(configLevel);
+  if (levelIndex > configIndex) return; // пропустить менее важные сообщения
+
   const logEntry = JSON.stringify({
     timestamp: getTimestamp(),
     level,

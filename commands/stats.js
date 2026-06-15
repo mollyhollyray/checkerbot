@@ -1,4 +1,4 @@
-const storage = require('../service/storage');
+const storage = require('../service/storage-mongo');
 const { sendMessage, escapeHtml } = require('../utils/message');
 const logger = require('../utils/logger');
 const config = require('../config');

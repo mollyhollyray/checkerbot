@@ -270,7 +270,7 @@ module.exports = {
             endTime: new Date().toLocaleString('ru-RU')
           });
 
-        } catch (error) {
+        } catch (error) { const { handleError } = require('./errorHandler'); handleError(error, 'checker');
           failedChecks++;
           logger.error(`❌ ОШИБКА ПРОВЕРКИ РЕПОЗИТОРИЯ: ${repoKey}`, error, {
             context: 'REPO_CHECK_ERROR',
@@ -395,7 +395,7 @@ module.exports = {
               endTime: new Date().toLocaleString('ru-RU')
             });
 
-          } catch (error) {
+          } catch (error) { const { handleError } = require('./errorHandler'); handleError(error, 'checker');
             logger.error(`❌ ОШИБКА ПРОВЕРКИ ВЛАДЕЛЬЦА: ${owner}`, error, {
               context: 'OWNER_CHECK_ERROR',
               checkId,
@@ -443,7 +443,7 @@ module.exports = {
       });
 
       return [...updates, ...releaseUpdates, ...branchUpdates];
-    } catch (error) {
+    } catch (error) { const { handleError } = require('./errorHandler'); handleError(error, 'checker');
       const totalDuration = Date.now() - startTime;
       logger.error(`💥 КРИТИЧЕСКАЯ ОШИБКА ПРОВЕРКИ [${checkId}]`, error, {
         context: 'CHECK_FAILED',
@@ -534,7 +534,7 @@ module.exports = {
               trackedIndividually: repoData.trackedIndividually
             });
           }
-        } catch (error) {
+        } catch (error) { const { handleError } = require('./errorHandler'); handleError(error, 'checker');
           logger.error(`❌ Ошибка получения информации о ветке ${branch}`, error, {
             context: 'BRANCH_INFO_ERROR',
             repoKey,
@@ -557,7 +557,7 @@ module.exports = {
 
       return branchUpdates;
 
-    } catch (error) {
+    } catch (error) { const { handleError } = require('./errorHandler'); handleError(error, 'checker');
       logger.error(`❌ ОШИБКА ПРОВЕРКИ ВЕТОК: ${owner}/${repo}`, error, {
         context: 'BRANCH_CHECK_ERROR',
         owner,
@@ -633,7 +633,7 @@ ${trackedIndividually ? '' : '\n👤 <i>Отслеживается через в
         commitSha: commit.sha.slice(0, 7)
       });
 
-    } catch (error) {
+    } catch (error) { const { handleError } = require('./errorHandler'); handleError(error, 'checker');
       logger.error('Ошибка отправки уведомления о новой ветке', error, {
         context: 'sendNewBranchNotification',
         repoKey: branchUpdate.repoKey,
@@ -668,7 +668,7 @@ ${trackedIndividually ? '' : '\n👤 <i>Отслеживается через в
         messageId: sentMessage.message_id
       });
 
-    } catch (error) {
+    } catch (error) { const { handleError } = require('./errorHandler'); handleError(error, 'checker');
       logger.error('Ошибка отправки уведомления об обновлении', error, {
         context: 'sendUpdateNotification',
         repoKey: update.repoKey,
@@ -700,7 +700,7 @@ ${trackedIndividually ? '' : '\n👤 <i>Отслеживается через в
         messageId: sentMessage.message_id
       });
 
-    } catch (error) {
+    } catch (error) { const { handleError } = require('./errorHandler'); handleError(error, 'checker');
       logger.error('Ошибка отправки уведомления о релизе', error, {
         context: 'sendReleaseNotification',
         repoKey: releaseUpdate.repoKey,
@@ -738,7 +738,7 @@ ${trackedIndividually ? '' : '\n👤 <i>Отслеживается через в
         repo: repoName
       });
 
-    } catch (error) {
+    } catch (error) { const { handleError } = require('./errorHandler'); handleError(error, 'checker');
       logger.error('Ошибка отправки уведомления о новом репозитории', error, {
         context: 'sendNewRepoNotification',
         owner,
@@ -796,7 +796,7 @@ ${trackedIndividually ? '' : '\n👤 <i>Отслеживается через в
 
       return { inline_keyboard: buttons };
       
-    } catch (error) {
+    } catch (error) { const { handleError } = require('./errorHandler'); handleError(error, 'checker');
       logger.error('Ошибка создания клавиатуры', error, {
         context: 'createNotificationKeyboard',
         repoKey: update.repoKey
